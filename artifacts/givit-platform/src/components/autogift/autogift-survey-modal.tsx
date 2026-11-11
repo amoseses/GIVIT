@@ -468,7 +468,19 @@ export function GiftSurveyModal({
                         <MatchScore rating={item.rating} factors={item.scoreFactors} />
                         {item.productUrl && <a href={item.productUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-givit-ember underline">View exact product</a>}
                         <textarea value={itemNotes[item.id] || ""} onChange={(e) => setItemNotes((prev) => ({ ...prev, [item.id]: e.target.value }))} rows={2} placeholder="Notes for this item: color, size, allergies, delivery timing..." className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2"><input value={item.name} onChange={(e) => updateBundleItem(selectedBundle.id, item.id, { name: e.target.value })} className="h-9 rounded-md border border-border bg-background px-3 text-sm" /><input type="number" value={(item.price / 100).toFixed(2)} onChange={(e) => updateBundleItem(selectedBundle.id, item.id, { price: Math.round(Number(e.target.value || 0) * 100) })} className="h-9 rounded-md border border-border bg-background px-3 text-sm" /></div>
+                        {/* Name is editable (a personalization note, like the
+                            textarea above), but price is NOT: this bundle's
+                            total is what gets written to autogift_orders and
+                            later charged verbatim by the admin's "Charge
+                            saved card" action, with no server-side
+                            recomputation against a catalog price -- some
+                            items here are hand-authored add-ons with no
+                            backing product row to validate against at all.
+                            An editable price input here was a direct
+                            self-checkout-price bug: a customer could set any
+                            item to $0.01 before approving, GIVIT would still
+                            fulfill the real item, and eat the difference. */}
+                        <div className="mt-2 grid grid-cols-[1fr_auto] items-center gap-2"><input value={item.name} onChange={(e) => updateBundleItem(selectedBundle.id, item.id, { name: e.target.value })} className="h-9 rounded-md border border-border bg-background px-3 text-sm" /><span className="h-9 rounded-md border border-border bg-muted px-3 text-sm flex items-center font-semibold text-foreground">${(item.price / 100).toFixed(2)}</span></div>
                         <div className="mt-2 flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" className="rounded-lg text-success" onClick={() => rateBundleItem(item, true)}><ThumbsUp className="h-3.5 w-3.5" /> Like this</Button><Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={() => rateBundleItem(item, false)}><ThumbsDown className="h-3.5 w-3.5" /> Not this</Button><Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={() => replaceBundleItem(selectedBundle.id, item)}>Regenerate item</Button><Button type="button" variant="outline" size="sm" className="rounded-lg text-destructive" onClick={() => removeBundleItem(selectedBundle.id, item.id)}>Remove</Button></div>
                       </div>
                     ))}
