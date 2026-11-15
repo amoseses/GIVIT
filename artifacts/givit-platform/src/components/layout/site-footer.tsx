@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { ArrowRight, ShieldCheck, Users } from "lucide-react";
 
 import { SponsorMarquee } from "@/components/marketing/sponsor-marquee";
+import { HolidayWreath } from "@/components/ui/holiday-wreath";
 import { useAuth } from "@/lib/auth/use-auth";
 import { createClient } from "@/lib/supabase/client";
 
@@ -22,7 +23,10 @@ export function SiteFooter() {
         <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-4">
           <div className="col-span-2">
             <Link href="/home" className="mb-3 flex items-center gap-2">
-              <img src="/Screenshot 2026-06-23 095149.png" alt="GIVIT" className="h-8 w-8 rounded-md object-cover" />
+              <span className="relative shrink-0">
+                <img src="/Screenshot 2026-06-23 095149.png" alt="GIVIT" className="h-8 w-8 rounded-md object-cover" />
+                <HolidayWreath className="absolute -right-2 -top-2 h-4 w-4 text-givit-ember" />
+              </span>
               <span className="font-serif text-lg font-bold text-foreground">
                 GIVIT
               </span>

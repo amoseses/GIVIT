@@ -24,6 +24,11 @@ const TOUR_STEPS: TourStep[] = [
     body: "As you add more people, this graph fills in — GIVIT uses it to notice patterns (shared interests, upcoming dates) you'd have to hold in your head otherwise.",
   },
   {
+    targetId: "tour-credits",
+    title: "Your Gift AI is free. Always.",
+    body: "That coin badge is for AutoGift only — a few free AutoGifts every year, then small top-up packs when you need more. No subscription, no surprise charges.",
+  },
+  {
     title: "That's the basics.",
     body: "Add your first person now and GIVIT starts watching their dates right away — or explore on your own, it's all still here whenever you're ready.",
   },

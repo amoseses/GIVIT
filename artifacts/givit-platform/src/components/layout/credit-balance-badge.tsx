@@ -28,6 +28,7 @@ export function CreditBalanceBadge({ isDark }: { isDark: boolean }) {
 
   return (
     <Link
+      id="tour-credits"
       href="/account#credits"
       title={`${status.balance} credits • ${status.freeAutogiftRemaining} free AutoGifts left this year`}
       className={`flex h-8 items-center gap-1 rounded-md px-2.5 text-xs font-semibold transition-colors ${

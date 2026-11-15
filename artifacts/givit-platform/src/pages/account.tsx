@@ -532,19 +532,52 @@ export default function AccountPage() {
                 </p>
                 <p className="text-xs text-muted-foreground">Free AutoGifts are used first and reset every January. After that, credits cover each AutoGift.</p>
               </div>
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                {CREDIT_PACKS.map((pack) => (
-                  <div key={pack.id} className="flex flex-col gap-2 rounded-lg border border-border/40 p-4">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-semibold text-givit-ink">{pack.label}</span>
-                      <span className="text-sm font-medium text-foreground">${(pack.priceCents / 100).toFixed(2)}</span>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {/* "Best value" = whichever pack is actually cheapest per
+                    credit, computed from real prices rather than hardcoded
+                    -- a tiered pricing table (one plain option, one
+                    highlighted "better deal"), not a new membership
+                    product: same two packs and same Stripe checkout as
+                    before, this is presentation only. */}
+                {CREDIT_PACKS.map((pack) => {
+                  const perCreditCents = pack.priceCents / pack.credits;
+                  const worstPerCreditCents = Math.max(...CREDIT_PACKS.map((p) => p.priceCents / p.credits));
+                  const isBestValue = CREDIT_PACKS.length > 1 && perCreditCents === Math.min(...CREDIT_PACKS.map((p) => p.priceCents / p.credits)) && perCreditCents < worstPerCreditCents;
+                  const savingsPct = isBestValue ? Math.round((1 - perCreditCents / worstPerCreditCents) * 100) : 0;
+                  return (
+                    <div
+                      key={pack.id}
+                      className={`relative flex flex-col gap-2 rounded-xl p-4 transition ${
+                        isBestValue
+                          ? "border-2 border-givit-ember bg-givit-ember/5 shadow-md shadow-givit-ember/10"
+                          : "border border-border/40"
+                      }`}
+                    >
+                      {isBestValue && (
+                        <span className="animate-badge-pop absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-givit-ember px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                          Best value -- save {savingsPct}%
+                        </span>
+                      )}
+                      <div className="flex items-baseline justify-between gap-2 pt-1">
+                        <span className="flex items-center gap-1.5 font-semibold text-givit-ink">
+                          <Coins className={`h-3.5 w-3.5 ${isBestValue ? "animate-float text-givit-ember" : "text-muted-foreground"}`} />
+                          {pack.label}
+                        </span>
+                        <span className="text-sm font-medium text-foreground">${(pack.priceCents / 100).toFixed(2)}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{pack.credits} credits - ${(perCreditCents / 100).toFixed(2)} each</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={buyingPack !== null}
+                        onClick={() => void handleBuyPack(pack.id)}
+                        className={`mt-auto rounded-md ${isBestValue ? "bg-givit-ember text-white hover:bg-givit-ember-hover" : "bg-muted text-foreground hover:bg-muted/70"}`}
+                      >
+                        {buyingPack === pack.id ? "Opening checkout..." : `Buy ${pack.credits} credits`}
+                      </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">{pack.credits} credits · ${(pack.priceCents / pack.credits / 100).toFixed(2)} each</p>
-                    <Button type="button" size="sm" disabled={buyingPack !== null} onClick={() => void handleBuyPack(pack.id)} className="mt-auto rounded-md bg-givit-ember text-white hover:bg-givit-ember-hover">
-                      {buyingPack === pack.id ? "Opening checkout…" : `Buy ${pack.credits} credits`}
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

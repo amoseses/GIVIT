@@ -7,6 +7,7 @@ import { HeaderProfileButton } from "@/components/layout/header-profile-button";
 import { CreditBalanceBadge } from "@/components/layout/credit-balance-badge";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useAuth } from "@/lib/auth/use-auth";
+import { HolidayWreath } from "@/components/ui/holiday-wreath";
 
 // Your Gift AI leads and is the only filled item: it's the product now,
 // not one tab among equals. Marketplace sits last and muted on purpose --
@@ -42,7 +43,10 @@ export function SiteHeader() {
       <div className={isDark ? "bg-black text-white" : "bg-white text-givit-ink border-b border-border"}>
         <div className="container flex items-center justify-between gap-3 py-2.5 md:py-3">
           <Link href="/home" className="shrink-0 flex items-center gap-2">
-            <img src="/Screenshot 2026-06-23 095149.png" alt="GIVIT" className="h-8 w-8 rounded-md object-cover" />
+            <span className="relative shrink-0">
+              <img src="/Screenshot 2026-06-23 095149.png" alt="GIVIT" className="h-8 w-8 rounded-md object-cover" />
+              <HolidayWreath className={`absolute -right-2 -top-2 h-4 w-4 ${isDark ? "text-white/70" : "text-givit-ember"}`} />
+            </span>
             <span className="font-serif text-xl font-bold tracking-tight hidden sm:block">
               GIVIT
             </span>
