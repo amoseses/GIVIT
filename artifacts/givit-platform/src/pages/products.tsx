@@ -751,6 +751,10 @@ export default function ProductsPage() {
                 compact
                 rankContext={!isMarketplaceShuffle ? (q ? { query: q } : activeCategory ? { categoryName: activeCategory.name } : undefined) : undefined}
                 shoppingFor={shoppingFor ? { name: shoppingFor.name, interests: shoppingFor.interests } : undefined}
+                // Only the top 10 AND only ones with a real click on record --
+                // badging something "Trending" with zero actual clicks would
+                // be a fake signal, not a cool one.
+                labelFor={sortVal === "trending" ? (p, i) => (i < 10 && (trendingClicks.get(p.slug) ?? 0) > 0 ? `🔥 Trending now` : undefined) : undefined}
               />
             ) : (
               <p className="py-8 text-center text-sm text-muted-foreground">

@@ -11,9 +11,15 @@ type Props = {
   compact?: boolean;
   rankContext?: { query?: string; categoryName?: string };
   shoppingFor?: { name: string; interests: string[] };
+  // Overrides the query/category rankLabel below for a sort that isn't
+  // "position in this search" -- namely Trending, which needs real click
+  // data (not just array index) to decide which cards actually earn the
+  // badge. Returning undefined for a given product falls through to the
+  // normal rankContext logic.
+  labelFor?: (product: Item, index: number) => string | undefined;
 };
 
-export function ProductGrid({ products, ratings, compact = false, rankContext, shoppingFor }: Props) {
+export function ProductGrid({ products, ratings, compact = false, rankContext, shoppingFor, labelFor }: Props) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
       {products.map((p, index) => {
@@ -25,7 +31,7 @@ export function ProductGrid({ products, ratings, compact = false, rankContext, s
         // "#47 in Tech" label out of 700 products isn't a credible ranking
         // signal, it just reads as filler. Beyond that, leave rankLabel
         // unset so ProductCard falls back to its own top-10 category check.
-        const rankLabel = contextLabel && index < 10 ? `#${index + 1} in ${contextLabel}` : undefined;
+        const rankLabel = labelFor?.(p, index) ?? (contextLabel && index < 10 ? `#${index + 1} in ${contextLabel}` : undefined);
         return (
           <ProductCard
             key={p.id}

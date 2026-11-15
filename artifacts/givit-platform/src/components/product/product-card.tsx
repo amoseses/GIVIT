@@ -58,6 +58,10 @@ export function ProductCard({
   const rankingLabel = rankLabel ?? (marketplaceProduct.category?.name
     ? `#${categoryRank} in ${marketplaceProduct.category.name}`
     : `#${categoryRank} in Marketplace`);
+  // Only the Trending sort's labelFor (products.tsx) ever sends a
+  // flame -- a reliable, cheap signal for "give this one the glow pill"
+  // without a separate boolean prop threading through ProductGrid too.
+  const isTrendingLabel = Boolean(rankLabel?.includes("\u{1F525}"));
   // When shopping for a saved person, ground the reason in an actual
   // overlap with their stated interests instead of the generic editorial
   // blurb — and when there's no real overlap, say so plainly rather than
@@ -135,7 +139,15 @@ export function ProductCard({
         </div>
 
         <div className="flex flex-1 flex-col gap-1 sm:gap-1.5 sm:p-3">
-          {(marketplaceProduct.brand || withinTop10) && (
+          {/* The Trending badge (real click data, not a positional rank)
+              gets its own glowing pill instead of the plain muted-text
+              rank label -- it's the one badge meant to visually pop, not
+              just quietly inform. */}
+          {isTrendingLabel ? (
+            <span className="givit-glow mb-0.5 inline-flex w-fit items-center rounded-full bg-givit-ember px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+              {rankingLabel}
+            </span>
+          ) : (marketplaceProduct.brand || withinTop10) && (
             <p className="flex items-center gap-1.5 text-[10px]">
               {marketplaceProduct.brand && <span className="font-mono font-bold uppercase tracking-widest text-givit-ember/80">{marketplaceProduct.brand}</span>}
               {withinTop10 && (
