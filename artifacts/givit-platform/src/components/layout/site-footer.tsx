@@ -25,7 +25,7 @@ export function SiteFooter() {
             <Link href="/home" className="mb-3 flex items-center gap-2">
               <span className="relative shrink-0">
                 <img src="/Screenshot 2026-06-23 095149.png" alt="GIVIT" className="h-8 w-8 rounded-md object-cover" />
-                <HolidayWreath className="absolute -right-2 -top-2 h-4 w-4 text-givit-ember" />
+                <HolidayWreath className="absolute -right-2.5 -top-2.5 h-5 w-5 drop-shadow-sm" />
               </span>
               <span className="font-serif text-lg font-bold text-foreground">
                 GIVIT

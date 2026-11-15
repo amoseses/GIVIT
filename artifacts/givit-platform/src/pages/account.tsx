@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { useLocation, Link } from "wouter";
-import { User, Heart, Settings, MapPin, CreditCard, Gift, ShoppingBag, Star, Edit2, PlusCircle, Trash2, Camera, Shuffle, Lock, Coins } from "lucide-react";
+import { User, Heart, Settings, MapPin, CreditCard, Gift, ShoppingBag, Star, Edit2, PlusCircle, Trash2, Camera, Shuffle, Lock, Coins, Crown, Sparkles } from "lucide-react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/layout/page-shell";
@@ -15,7 +15,7 @@ import { uploadFileToS3 } from "@/lib/upload";
 import { getCohort } from "@/lib/data/gifting-cohorts";
 import { GiftingQuizModal, CohortMark } from "@/components/personalization/gifting-quiz-modal";
 import { Reveal } from "@/components/ui/reveal";
-import { CREDIT_PACKS, CREDITS_CHANGED_EVENT, confirmCreditPurchase, getCreditStatus, startCreditCheckout, type CreditPackId, type CreditStatus } from "@/lib/credits/credits";
+import { CREDIT_PACKS, CREDITS_CHANGED_EVENT, confirmCreditPurchase, getCreditStatus, startCreditCheckout, startMembershipCheckout, MEMBERSHIP_TIERS, MEMBERSHIP_ENABLED, type CreditPackId, type CreditStatus } from "@/lib/credits/credits";
 
 async function authedFetch(path: string, init?: RequestInit) {
   const { data } = await createClient().auth.getSession();
@@ -92,6 +92,7 @@ export default function AccountPage() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
   const [buyingPack, setBuyingPack] = useState<CreditPackId | null>(null);
+  const [startingMembership, setStartingMembership] = useState(false);
   const cohort = getCohort(profile?.gifting_cohort);
 
   // Password change state
@@ -293,6 +294,15 @@ export default function AccountPage() {
     if (error) {
       setAccountNotice(error);
       setBuyingPack(null);
+    }
+  }
+
+  async function handleStartMembership() {
+    setStartingMembership(true);
+    const error = await startMembershipCheckout(MEMBERSHIP_TIERS[0].id);
+    if (error) {
+      setAccountNotice(error);
+      setStartingMembership(false);
     }
   }
 
@@ -526,10 +536,26 @@ export default function AccountPage() {
           ) : (
             <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
               <div className="space-y-2 text-sm">
-                <p className="text-3xl font-semibold text-givit-ink">{creditStatus.balance}<span className="ml-1.5 text-sm font-normal text-muted-foreground">credits</span></p>
-                <p className="text-muted-foreground">
-                  Your Gift AI is always free. Free AutoGifts this year: <span className="font-medium text-foreground">{creditStatus.freeAutogiftRemaining} of {creditStatus.freeAutogiftLimit}</span>.
-                </p>
+                {/* "X of Y" read as ambiguous (used vs. remaining) -- these
+                    spell out "left" explicitly and show the fraction as a
+                    single glanceable number instead of a sentence. */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-lg bg-muted/50 p-3 text-center">
+                    <Coins className="mx-auto h-4 w-4 text-givit-ember" />
+                    <p className="mt-1 text-xl font-bold text-givit-ink">{creditStatus.balance}</p>
+                    <p className="text-[10px] leading-tight text-muted-foreground">credits</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3 text-center">
+                    <Gift className="mx-auto h-4 w-4 text-givit-ember" />
+                    <p className="mt-1 text-xl font-bold text-givit-ink">{creditStatus.freeAutogiftRemaining}<span className="text-xs font-normal text-muted-foreground">/{creditStatus.freeAutogiftLimit}</span></p>
+                    <p className="text-[10px] leading-tight text-muted-foreground">free AutoGifts left</p>
+                  </div>
+                  <div className="rounded-lg bg-success/10 p-3 text-center">
+                    <Sparkles className="mx-auto h-4 w-4 text-success" />
+                    <p className="mt-1 text-xl font-bold text-success">Free</p>
+                    <p className="text-[10px] leading-tight text-muted-foreground">Gift AI, always</p>
+                  </div>
+                </div>
                 <p className="text-xs text-muted-foreground">Free AutoGifts are used first and reset every January. After that, credits cover each AutoGift.</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -582,6 +608,43 @@ export default function AccountPage() {
             </div>
           )}
         </div>
+
+        {/* Membership -- behind VITE_ENABLE_MEMBERSHIP until the founders
+            land on real pricing (see MEMBERSHIP_TIERS in credits.ts and
+            credits.mjs). The backend (subscription checkout, webhook sync,
+            monthly credit grant) is already live either way; this flag
+            only controls whether anyone can SEE the button to buy one. */}
+        {MEMBERSHIP_ENABLED && (
+          <div className="slide-up givit-panel p-6 lg:col-span-2">
+            <div className="mb-4 flex items-center gap-2">
+              <Crown className="h-4 w-4 text-givit-ember" />
+              <h2 className="font-semibold text-givit-ink">Membership</h2>
+            </div>
+            {creditStatus?.membershipStatus === "active" ? (
+              <p className="text-sm text-foreground">
+                You're a <span className="font-semibold text-givit-ember">GIVIT Member</span> -- your monthly bonus credits land automatically.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3 rounded-xl border-2 border-givit-ember bg-givit-ember/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="flex items-center gap-1.5 font-semibold text-givit-ink">
+                    <Crown className="h-3.5 w-3.5 animate-float text-givit-ember" /> {MEMBERSHIP_TIERS[0].label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">${(MEMBERSHIP_TIERS[0].priceCents / 100).toFixed(2)}/mo -- {MEMBERSHIP_TIERS[0].monthlyCredits} bonus credits every month, automatically.</p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={startingMembership}
+                  onClick={() => void handleStartMembership()}
+                  className="shrink-0 rounded-md bg-givit-ember text-white hover:bg-givit-ember-hover"
+                >
+                  {startingMembership ? "Opening checkout..." : "Become a Member"}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Orders */}
         <div className="slide-up givit-panel p-6">

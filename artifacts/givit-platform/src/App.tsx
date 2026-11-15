@@ -10,6 +10,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { LoginPrompt } from "@/components/personalization/login-prompt";
 import { BetaFeedbackWidget } from "@/components/feedback/beta-feedback-widget";
 import { UrgentOccasionBanner } from "@/components/personalization/urgent-occasion-banner";
+import { MembershipTopBanner } from "@/components/personalization/membership-top-banner";
 import { AmbientScrollBackground } from "@/components/layout/ambient-scroll-background";
 import { SeasonalSnow } from "@/components/layout/seasonal-snow";
 
@@ -120,6 +121,7 @@ function Router() {
       <AmbientScrollBackground />
       <SeasonalSnow />
       {isBetaTesting && <BetaTestingBanner />}
+      <MembershipTopBanner />
       {!isLanding && <SiteHeader />}
       {!isLanding && <UrgentOccasionBanner />}
       <main className="flex-1" style={{ opacity, transition: "opacity 150ms ease-in-out" }}>

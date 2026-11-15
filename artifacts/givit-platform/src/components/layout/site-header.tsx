@@ -45,7 +45,7 @@ export function SiteHeader() {
           <Link href="/home" className="shrink-0 flex items-center gap-2">
             <span className="relative shrink-0">
               <img src="/Screenshot 2026-06-23 095149.png" alt="GIVIT" className="h-8 w-8 rounded-md object-cover" />
-              <HolidayWreath className={`absolute -right-2 -top-2 h-4 w-4 ${isDark ? "text-white/70" : "text-givit-ember"}`} />
+              <HolidayWreath className="absolute -right-2.5 -top-2.5 h-5 w-5 drop-shadow-sm" />
             </span>
             <span className="font-serif text-xl font-bold tracking-tight hidden sm:block">
               GIVIT
