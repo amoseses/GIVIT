@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { useLocation, Link } from "wouter";
-import { User, Heart, Settings, MapPin, CreditCard, Gift, ShoppingBag, Star, Edit2, PlusCircle, Trash2, Camera, Shuffle, Lock, Coins, Crown, Sparkles } from "lucide-react";
+import { User, Heart, Settings, MapPin, CreditCard, Gift, ShoppingBag, Star, Edit2, PlusCircle, Trash2, Camera, Shuffle, Lock, Coins, Crown, Sparkles, Phone } from "lucide-react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/layout/page-shell";
@@ -489,6 +489,20 @@ export default function AccountPage() {
               <div className="space-y-2">
                 <h1 className="font-serif text-2xl font-bold leading-tight text-givit-ink">{profile?.full_name || "Your account"}</h1>
                 <p className="text-sm text-muted-foreground">{profile?.email}</p>
+                {/* Was only visible by opening Edit profile -- a saved phone
+                    number otherwise looked "missing" even when it was
+                    right there in the DB, which is exactly what it looked
+                    like when the profile fetch itself was broken too. */}
+                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 text-givit-ember/70" />
+                  {profile?.phone ? (
+                    profile.phone
+                  ) : (
+                    <button type="button" onClick={() => setEditingProfile(true)} className="font-semibold text-givit-ember hover:underline">
+                      Add a phone number
+                    </button>
+                  )}
+                </p>
                 {profile?.role === "admin" && (
                   <span className="inline-block rounded-full bg-givit-ember/10 px-2.5 py-0.5 text-xs font-semibold text-givit-ember">Admin</span>
                 )}
