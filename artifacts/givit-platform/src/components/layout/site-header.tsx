@@ -79,7 +79,7 @@ export function SiteHeader() {
           {/* Garland strung along the seam above the nav row -- sits in the
               border strip, not over the nav labels' own text, which starts
               lower (inside the py-2 + button padding below). */}
-          <HolidayGarland className="pointer-events-none absolute inset-x-0 -top-[13px] opacity-90" />
+          <HolidayGarland className="pointer-events-none absolute inset-x-0 -top-[17px] opacity-90" />
           <div className="container relative flex items-center gap-1.5 overflow-x-auto py-2 scrollbar-none">
             {NAV_ITEMS.map((item) => {
               const [itemPath] = item.href.split("?");

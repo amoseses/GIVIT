@@ -21,7 +21,7 @@ const SPIKE_ID = "spike";
 // via <use> at several points/rotations along the curve rather than a
 // dozen near-duplicate <path> elements.
 function SpikeDef({ id }: { id: string }) {
-  return <path id={id} d="M 0 0 L -1.7 6.5 L 1.7 6.5 Z" />;
+  return <path id={id} d="M 0 0 L -2.6 9.5 L 2.6 9.5 Z" />;
 }
 
 // Curve is the sine-ish dip y = 3 + 17*sin(pi*x/100) (touches y=3 at the
@@ -50,34 +50,37 @@ export function HolidayGarland({ className = "" }: { className?: string }) {
     // rendered pixel, so the pattern's own 100-unit tile repeats roughly
     // every 100px across the real width instead of being stretched into
     // one giant tile the way a stretched viewBox would.
-    <svg width="100%" height="28" className={className} aria-hidden="true">
+    <svg width="100%" height="34" className={className} aria-hidden="true">
       <defs>
         <SpikeDef id={spikeId} />
       </defs>
-      <pattern id={patternId} width="100" height="28" patternUnits="userSpaceOnUse">
-        {/* Thin branch line underneath the spikes -- without it the spikes
-            read as scattered marks, not a garland strung along something. */}
-        <path d="M -5 3 Q 25 20 50 20 Q 75 20 105 3" fill="none" stroke="#166534" strokeWidth="1" opacity="0.7" />
+      <pattern id={patternId} width="100" height="34" patternUnits="userSpaceOnUse">
+        {/* Branch line underneath the spikes -- without it the spikes read
+            as scattered marks, not a garland strung along something. */}
+        <path d="M -5 3 Q 25 20 50 20 Q 75 20 105 3" fill="none" stroke="#166534" strokeWidth="1.8" opacity="0.7" />
+        {/* Three layers at increasing scale/offset, not two -- this is
+            the actual "thicker, bushier" lever: more overlapping needle
+            clusters per position, not just bigger ones. */}
         {SPIKES.map((s, i) => (
-          <use key={i} href={`#${spikeId}`} transform={`translate(${s.x} ${s.y}) rotate(${s.rotation}) scale(${0.85 + (i % 3) * 0.12})`} fill={SHADE_COLOR[s.shade]} />
+          <use key={`c${i}`} href={`#${spikeId}`} transform={`translate(${s.x - 2} ${s.y + 1}) rotate(${s.rotation - 8}) scale(${1.1 + (i % 3) * 0.15})`} fill={SHADE_COLOR[s.shade === "light" ? "dark" : "light"]} opacity="0.8" />
         ))}
-        {/* A second, shorter layer of spikes offset slightly behind the
-            first for fullness -- same idea as the wreath's overlapping
-            rings, adapted to a spike shape instead of a dashed stroke. */}
         {SPIKES.map((s, i) => (
-          <use key={`b${i}`} href={`#${spikeId}`} transform={`translate(${s.x + 3} ${s.y - 1.5}) rotate(${s.rotation + 10}) scale(0.6)`} fill={SHADE_COLOR[s.shade === "dark" ? "mid" : "dark"]} opacity="0.85" />
+          <use key={i} href={`#${spikeId}`} transform={`translate(${s.x} ${s.y}) rotate(${s.rotation}) scale(${1.3 + (i % 3) * 0.18})`} fill={SHADE_COLOR[s.shade]} />
+        ))}
+        {SPIKES.map((s, i) => (
+          <use key={`b${i}`} href={`#${spikeId}`} transform={`translate(${s.x + 3} ${s.y - 1.5}) rotate(${s.rotation + 10}) scale(1.05)`} fill={SHADE_COLOR[s.shade === "dark" ? "mid" : "dark"]} opacity="0.85" />
         ))}
         {/* Gold bell hanging at the lowest point of the dip. */}
-        <g transform="translate(50 21.5)">
-          <path d="M -2.6 0 Q -2.6 -4 0 -4 Q 2.6 -4 2.6 0 Z" fill="#d4a017" />
-          <rect x="-0.5" y="-4.6" width="1" height="1.4" fill="#d4a017" />
-          <circle cy="1.3" r="0.9" fill="#d4a017" />
+        <g transform="translate(50 23)">
+          <path d="M -3.4 0 Q -3.4 -5.2 0 -5.2 Q 3.4 -5.2 3.4 0 Z" fill="#d4a017" />
+          <rect x="-0.6" y="-6" width="1.2" height="1.8" fill="#d4a017" />
+          <circle cy="1.7" r="1.2" fill="#d4a017" />
         </g>
         {/* Red berry clusters partway up each side of the swag. */}
-        <circle cx="18" cy="10.5" r="1.7" fill="#d62f3f" />
-        <circle cx="21.5" cy="13" r="1.7" fill="#d62f3f" />
-        <circle cx="82" cy="10.5" r="1.7" fill="#d62f3f" />
-        <circle cx="78.5" cy="13" r="1.7" fill="#d62f3f" />
+        <circle cx="18" cy="10.5" r="2.3" fill="#d62f3f" />
+        <circle cx="22" cy="13.5" r="2.3" fill="#d62f3f" />
+        <circle cx="82" cy="10.5" r="2.3" fill="#d62f3f" />
+        <circle cx="78" cy="13.5" r="2.3" fill="#d62f3f" />
       </pattern>
       <rect width="100%" height="100%" fill={`url(#${patternId})`} />
     </svg>
