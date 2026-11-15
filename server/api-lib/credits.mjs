@@ -124,3 +124,94 @@ export async function grantCreditsForPaidSession(session, alreadyGrantedFn, gran
   const result = await grantFn(userId, credits, "pack_purchase", session.payment_intent);
   return { ok: true, alreadyGranted: Boolean(result?.alreadyGranted), balance: result?.balance, creditsGranted: result?.alreadyGranted ? 0 : credits };
 }
+
+// ============================================================
+// MEMBERSHIP -- recurring subscription, additive to the one-time credit
+// packs above. Deliberately reuses the SAME idempotent grant_credits()
+// ledger for the monthly bonus (keyed on the Stripe invoice id, which
+// credit_transactions.stripe_payment_intent_id is just a generic UNIQUE
+// text column underneath, not actually payment-intent-specific) rather
+// than inventing a second grant mechanism -- one ledger, one place a
+// double-grant bug could hide, not two.
+//
+// PLACEHOLDER PRICING -- confirm with the other founders before this is
+// linked anywhere real users can reach it. This is the one place to
+// change the number.
+// ============================================================
+export const MEMBERSHIP_TIERS = {
+  member: { id: "member", label: "GIVIT Member", amountCents: 499, monthlyCredits: 50 },
+};
+
+export async function createMembershipCheckoutSession(stripe, userId, userEmail, tierId) {
+  const tier = MEMBERSHIP_TIERS[tierId];
+  if (!tier) throw new Error(`Unknown membership tier: ${tierId}`);
+
+  const appUrl = resolveAppUrl();
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer_email: userEmail,
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          unit_amount: tier.amountCents,
+          recurring: { interval: "month" },
+          product_data: { name: `${tier.label} -- ${tier.monthlyCredits} bonus credits/month` },
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: `${appUrl}/account?membership=success&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}/account?membership=cancelled`,
+    metadata: { source: "givit_membership", user_id: userId, tier_id: tierId },
+  });
+  return session;
+}
+
+// Mirrors a subscription's current state onto profiles -- called from
+// customer.subscription.created/updated/deleted. Looked up by Stripe
+// customer id (not user id) since that's all the webhook payload reliably
+// carries for every one of those event types.
+export async function syncMembershipFromSubscription(subscription) {
+  const rows = await restFetch(`profiles?stripe_customer_id=eq.${encodeURIComponent(subscription.customer)}&select=id`);
+  const userId = rows?.[0]?.id;
+  if (!userId) {
+    console.error("syncMembershipFromSubscription: no profile for Stripe customer", subscription.customer);
+    return;
+  }
+  const tierId = subscription.metadata?.tier_id ?? (subscription.status === "canceled" ? null : "member");
+  const active = subscription.status === "active" || subscription.status === "trialing";
+  await restFetch(`profiles?id=eq.${userId}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      membership_tier: active ? tierId : null,
+      membership_status: subscription.status,
+      stripe_membership_subscription_id: subscription.id,
+      membership_current_period_end: subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000).toISOString()
+        : null,
+    }),
+  });
+}
+
+// Grants one month's bonus credits for a paid invoice -- covers both the
+// first invoice (new subscription) and every renewal, since Stripe fires
+// invoice.payment_succeeded for both. Idempotent the same way pack
+// purchases are: grant_credits() rejects a repeat insert for an invoice
+// id it's already seen.
+export async function grantMembershipCreditsForInvoice(invoice) {
+  const tierId = invoice.subscription_details?.metadata?.tier_id ?? invoice.lines?.data?.[0]?.metadata?.tier_id ?? "member";
+  const tier = MEMBERSHIP_TIERS[tierId];
+  if (!tier) {
+    console.error("grantMembershipCreditsForInvoice: unknown tier", tierId);
+    return;
+  }
+  const rows = await restFetch(`profiles?stripe_customer_id=eq.${encodeURIComponent(invoice.customer)}&select=id`);
+  const userId = rows?.[0]?.id;
+  if (!userId) {
+    console.error("grantMembershipCreditsForInvoice: no profile for Stripe customer", invoice.customer);
+    return;
+  }
+  await grantCredits(userId, tier.monthlyCredits, "membership_monthly", invoice.id);
+}

@@ -9,6 +9,8 @@ export type CreditStatus = {
   freeAutogiftLimit: number;
   freeAiRemaining: number;
   freeAiLimit: number;
+  membershipTier?: string | null;
+  membershipStatus?: string | null;
 };
 
 // "unavailable" = we couldn't reach/verify the ledger at all (network,
@@ -25,6 +27,16 @@ export const CREDIT_PACKS = [
   { id: "standard", label: "Standard", credits: 45, priceCents: 1099 },
 ] as const;
 export type CreditPackId = (typeof CREDIT_PACKS)[number]["id"];
+
+// Display copy for membership; authoritative pricing lives in
+// MEMBERSHIP_TIERS in server/api-lib/credits.mjs -- keep in sync. Behind
+// VITE_ENABLE_MEMBERSHIP (see the account page) until the founders agree
+// on real pricing -- this constant existing doesn't expose it anywhere.
+export const MEMBERSHIP_TIERS = [
+  { id: "member", label: "GIVIT Member", priceCents: 499, monthlyCredits: 50 },
+] as const;
+export type MembershipTierId = (typeof MEMBERSHIP_TIERS)[number]["id"];
+export const MEMBERSHIP_ENABLED = import.meta.env.VITE_ENABLE_MEMBERSHIP === "true";
 
 // Fired after anything that changes the balance (a spend, a purchase) so
 // the header badge can refetch instead of showing a stale number until
@@ -107,6 +119,25 @@ export async function startCreditCheckout(packId: CreditPackId): Promise<string 
     return null;
   } catch {
     return "Couldn't start checkout -- check your connection and try again.";
+  }
+}
+
+// Membership goes through api/stripe/setup-intent.ts (a different
+// endpoint than credit packs), since that's where the rest of the Stripe
+// subscription/webhook plumbing already lives.
+export async function startMembershipCheckout(tierId: MembershipTierId): Promise<string | null> {
+  try {
+    const res = await authedFetch("/api/stripe/setup-intent?action=membership_checkout", {
+      method: "POST",
+      body: JSON.stringify({ tierId }),
+    });
+    if (!res) return "Sign in to become a member.";
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.url) return data?.error || "Couldn't start membership checkout -- try again.";
+    window.location.assign(data.url);
+    return null;
+  } catch {
+    return "Couldn't start membership checkout -- check your connection and try again.";
   }
 }
 

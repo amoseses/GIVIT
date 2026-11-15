@@ -1106,15 +1106,21 @@ AS $$
 DECLARE
   v_account credit_accounts;
   v_limits RECORD;
+  v_membership_tier TEXT;
+  v_membership_status TEXT;
 BEGIN
   v_account := credit_lock_account(p_user_id);
   SELECT * INTO v_limits FROM credit_free_limits();
+  SELECT membership_tier, membership_status INTO v_membership_tier, v_membership_status
+    FROM profiles WHERE id = p_user_id;
   RETURN jsonb_build_object(
     'balance', v_account.balance,
     'freeAiRemaining', GREATEST(v_limits.free_ai - v_account.free_ai_used, 0),
     'freeAiLimit', v_limits.free_ai,
     'freeAutogiftRemaining', GREATEST(v_limits.free_autogift - v_account.free_autogift_used, 0),
-    'freeAutogiftLimit', v_limits.free_autogift
+    'freeAutogiftLimit', v_limits.free_autogift,
+    'membershipTier', v_membership_tier,
+    'membershipStatus', v_membership_status
   );
 END;
 $$;
@@ -1218,6 +1224,21 @@ GRANT EXECUTE ON FUNCTION grant_credits(UUID, INTEGER, TEXT, TEXT) TO service_ro
 -- role: 'customer' -- keep working. Admins, and server-side code using
 -- the service-role key (auth.uid() IS NULL), are unaffected. Idempotent.
 -- ============================================================
+-- ============================================================
+-- MEMBERSHIP (recurring subscription, separate from one-time credit packs)
+-- PLACEHOLDER PRICING: $4.99/mo for 50 bonus credits/month, set in
+-- MEMBERSHIP_TIERS (server/api-lib/credits.mjs) -- the one place to
+-- change it before this is promoted to real customers. Not linked in any
+-- nav/UI unless VITE_ENABLE_MEMBERSHIP=true is set, so shipping this
+-- schema does not, by itself, let anyone see or buy it.
+-- ============================================================
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS membership_tier TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS membership_status TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_membership_subscription_id TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS membership_current_period_end TIMESTAMPTZ;
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_stripe_membership_subscription_id_idx
+  ON profiles (stripe_membership_subscription_id) WHERE stripe_membership_subscription_id IS NOT NULL;
+
 CREATE OR REPLACE FUNCTION is_platform_admin(p_user_id UUID)
 RETURNS BOOLEAN
 SECURITY DEFINER
@@ -1243,6 +1264,14 @@ BEGIN
     NEW.stripe_default_payment_method_id := NULL;
     NEW.stripe_connect_account_id := NULL;
     NEW.stripe_connect_charges_enabled := false;
+    -- Membership is granted only by the subscription webhook (service
+    -- role, auth.uid() IS NULL), same protection as the Stripe columns
+    -- above -- otherwise any signed-in user could PATCH their own
+    -- profiles row to membership_tier='member' and skip paying entirely.
+    NEW.membership_tier := NULL;
+    NEW.membership_status := NULL;
+    NEW.stripe_membership_subscription_id := NULL;
+    NEW.membership_current_period_end := NULL;
   ELSE
     NEW.role := OLD.role;
     NEW.is_banned := OLD.is_banned;
@@ -1250,6 +1279,10 @@ BEGIN
     NEW.stripe_default_payment_method_id := OLD.stripe_default_payment_method_id;
     NEW.stripe_connect_account_id := OLD.stripe_connect_account_id;
     NEW.stripe_connect_charges_enabled := OLD.stripe_connect_charges_enabled;
+    NEW.membership_tier := OLD.membership_tier;
+    NEW.membership_status := OLD.membership_status;
+    NEW.stripe_membership_subscription_id := OLD.stripe_membership_subscription_id;
+    NEW.membership_current_period_end := OLD.membership_current_period_end;
   END IF;
   RETURN NEW;
 END;
