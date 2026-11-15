@@ -134,12 +134,19 @@ export async function grantCreditsForPaidSession(session, alreadyGrantedFn, gran
 // than inventing a second grant mechanism -- one ledger, one place a
 // double-grant bug could hide, not two.
 //
-// PLACEHOLDER PRICING -- confirm with the other founders before this is
-// linked anywhere real users can reach it. This is the one place to
-// change the number.
+// $6.99/mo, 40 credits/mo -- $0.1748/credit, ~28% cheaper than the best
+// one-time pack (Standard, $0.2442/credit), which is what actually makes
+// "membership" a real discount worth joining for rather than a label on
+// the same price. 40 credits covers 4 AutoGifts/month (10 credits each)
+// on top of the 3 free ones/year, a genuinely useful amount for someone
+// actively using it for several people. Credits cost GIVIT essentially
+// nothing to grant (the real expense -- the gift itself -- is charged
+// and fee'd separately at approval), so margin here is high at this
+// price even after Stripe's cut. Still the one place to change the
+// number if real usage says otherwise -- this isn't carved in stone.
 // ============================================================
 export const MEMBERSHIP_TIERS = {
-  member: { id: "member", label: "GIVIT Member", amountCents: 499, monthlyCredits: 50 },
+  member: { id: "member", label: "GIVIT Member", amountCents: 699, monthlyCredits: 40 },
 };
 
 export async function createMembershipCheckoutSession(stripe, userId, userEmail, tierId) {

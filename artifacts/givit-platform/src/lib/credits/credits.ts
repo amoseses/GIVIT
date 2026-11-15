@@ -29,11 +29,14 @@ export const CREDIT_PACKS = [
 export type CreditPackId = (typeof CREDIT_PACKS)[number]["id"];
 
 // Display copy for membership; authoritative pricing lives in
-// MEMBERSHIP_TIERS in server/api-lib/credits.mjs -- keep in sync. Behind
-// VITE_ENABLE_MEMBERSHIP (see the account page) until the founders agree
-// on real pricing -- this constant existing doesn't expose it anywhere.
+// MEMBERSHIP_TIERS in server/api-lib/credits.mjs -- keep in sync.
+// $6.99/mo for 40 credits, ~28% cheaper per credit than the best
+// one-time pack -- see that file's comment for the full reasoning. Still
+// behind VITE_ENABLE_MEMBERSHIP (see the account page and top banner)
+// until it's actually turned on -- this constant existing doesn't expose
+// it anywhere by itself.
 export const MEMBERSHIP_TIERS = [
-  { id: "member", label: "GIVIT Member", priceCents: 499, monthlyCredits: 50 },
+  { id: "member", label: "GIVIT Member", priceCents: 699, monthlyCredits: 40 },
 ] as const;
 export type MembershipTierId = (typeof MEMBERSHIP_TIERS)[number]["id"];
 export const MEMBERSHIP_ENABLED = import.meta.env.VITE_ENABLE_MEMBERSHIP === "true";
