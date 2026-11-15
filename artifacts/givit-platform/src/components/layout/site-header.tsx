@@ -8,6 +8,7 @@ import { CreditBalanceBadge } from "@/components/layout/credit-balance-badge";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useAuth } from "@/lib/auth/use-auth";
 import { HolidayWreath } from "@/components/ui/holiday-wreath";
+import { HolidayGarland } from "@/components/ui/holiday-garland";
 
 // Your Gift AI leads and is the only filled item: it's the product now,
 // not one tab among equals. Marketplace sits last and muted on purpose --
@@ -74,8 +75,12 @@ export function SiteHeader() {
           </div>
         </div>
 
-        <div className={isDark ? "border-t border-white/8 bg-white/5" : "border-t border-border bg-givit-sand/40"}>
-          <div className="container flex items-center gap-1.5 overflow-x-auto py-2 scrollbar-none">
+        <div className={`relative ${isDark ? "border-t border-white/8 bg-white/5" : "border-t border-border bg-givit-sand/40"}`}>
+          {/* Garland strung along the seam above the nav row -- sits in the
+              border strip, not over the nav labels' own text, which starts
+              lower (inside the py-2 + button padding below). */}
+          <HolidayGarland className="pointer-events-none absolute inset-x-0 -top-[18px] opacity-80" />
+          <div className="container relative flex items-center gap-1.5 overflow-x-auto py-2 scrollbar-none">
             {NAV_ITEMS.map((item) => {
               const [itemPath] = item.href.split("?");
               const isActive = path === itemPath;
