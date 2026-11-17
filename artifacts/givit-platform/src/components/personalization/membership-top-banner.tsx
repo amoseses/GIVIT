@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Crown, X } from "lucide-react";
 
 import { useAuth } from "@/lib/auth/use-auth";
-import { MEMBERSHIP_ENABLED, MEMBERSHIP_TIERS } from "@/lib/credits/credits";
+import { MEMBERSHIP_ENABLED, MEMBERSHIP_TIERS, isActiveMember } from "@/lib/credits/credits";
 
 const DISMISS_KEY = "givit-membership-banner-dismissed";
 
@@ -23,7 +23,7 @@ export function MembershipTopBanner() {
   if (!MEMBERSHIP_ENABLED || dismissed) return null;
   // Already a member, or not signed in yet (nothing to upsell to a guest
   // who can't check out) -- same reasoning UrgentOccasionBanner uses.
-  if (user && profile?.membership_status === "active") return null;
+  if (user && isActiveMember(profile?.membership_status)) return null;
 
   const tier = MEMBERSHIP_TIERS[0];
 
@@ -38,9 +38,9 @@ export function MembershipTopBanner() {
         <p className="flex items-center gap-1.5 text-xs font-medium text-givit-ink sm:text-sm">
           <Crown className="h-3.5 w-3.5 shrink-0 text-givit-ember" />
           <span>
-            <span className="font-semibold">{tier.label}</span> -- ${(tier.priceCents / 100).toFixed(2)}/mo for {tier.monthlyCredits} bonus credits every month.
+            <span className="font-semibold">{tier.label}</span>: ${(tier.priceCents / 100).toFixed(2)}/mo for {tier.monthlyCredits} credits every month.
           </span>
-          <Link href="/account#credits" className="font-semibold text-givit-ember underline-offset-2 hover:underline">
+          <Link href={user ? "/account#membership" : "/signup?next=/account"} className="font-semibold text-givit-ember underline-offset-2 hover:underline">
             Join now
           </Link>
         </p>

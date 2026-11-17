@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { CheckCircle, ExternalLink, Gift, Loader2, Plus, Send, Sparkles, Ticket, X, AlertTriangle, Star } from "lucide-react";
+import { CheckCircle, ExternalLink, Gift, Loader2, Plus, Send, Ticket, X, AlertTriangle, Star } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/layout/page-shell";
 import { useAuth } from "@/lib/auth/use-auth";
@@ -311,7 +312,7 @@ export default function SubmitProductPage() {
       <div className="mt-6 rounded-xl border border-givit-ember/20 bg-gradient-to-br from-givit-ember/15 to-givit-coral/10 p-5">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-givit-ember text-white">
-            <Sparkles className="h-4 w-4" />
+            <RibbonBow className="h-4 w-4" />
           </div>
           <div>
             <h2 className="font-semibold text-givit-ink">Why add your own products?</h2>

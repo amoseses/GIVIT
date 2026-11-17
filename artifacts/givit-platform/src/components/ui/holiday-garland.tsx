@@ -42,6 +42,27 @@ const SPIKES: { x: number; y: number; rotation: number; shade: "dark" | "mid" | 
 ];
 const SHADE_COLOR = { dark: "#166534", mid: "#1f8a4c", light: "#2fa360" };
 
+// Fairy lights strung along the same curve, a few px below the branch so
+// they hang off it. Drawn as repeating CSS radial-gradients (one 100px
+// tile each, matching the SVG pattern's tile) rather than inside the SVG
+// <pattern>: CSS animation on pattern contents is unreliable across
+// browsers, while opacity on a plain div is not. Two interleaved sets
+// that fade against each other read as twinkling, not blinking.
+function lightsBackground(lights: { x: number; y: number; color: string }[]) {
+  return lights
+    .map((l) => `radial-gradient(circle at ${l.x}px ${l.y}px, #fff 0, ${l.color} 1.4px, ${l.color}66 2.6px, transparent 5px)`)
+    .join(", ");
+}
+const LIGHTS_A = lightsBackground([
+  { x: 9, y: 10.5, color: "#ffd166" },
+  { x: 64, y: 22, color: "#ff5a5f" },
+]);
+const LIGHTS_B = lightsBackground([
+  { x: 36, y: 22, color: "#7dd3fc" },
+  { x: 91, y: 10.5, color: "#ffd166" },
+]);
+const LIGHTS_STYLE = { backgroundSize: "100px 34px", backgroundRepeat: "repeat-x" } as const;
+
 export function HolidayGarland({ className = "" }: { className?: string }) {
   const patternId = useId();
   const spikeId = `${useId()}-${SPIKE_ID}`;
@@ -50,7 +71,8 @@ export function HolidayGarland({ className = "" }: { className?: string }) {
     // rendered pixel, so the pattern's own 100-unit tile repeats roughly
     // every 100px across the real width instead of being stretched into
     // one giant tile the way a stretched viewBox would.
-    <svg width="100%" height="34" className={className} aria-hidden="true">
+    <div className={className} style={{ height: 34 }} aria-hidden="true">
+    <svg width="100%" height="34" className="absolute inset-0">
       <defs>
         <SpikeDef id={spikeId} />
       </defs>
@@ -84,5 +106,8 @@ export function HolidayGarland({ className = "" }: { className?: string }) {
       </pattern>
       <rect width="100%" height="100%" fill={`url(#${patternId})`} />
     </svg>
+    <div className="garland-lights-a absolute inset-0" style={{ ...LIGHTS_STYLE, backgroundImage: LIGHTS_A }} />
+    <div className="garland-lights-b absolute inset-0" style={{ ...LIGHTS_STYLE, backgroundImage: LIGHTS_B }} />
+    </div>
   );
 }

@@ -1,18 +1,39 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { Bell, Calendar, CalendarDays, Gift, Sparkles, UserRound, X, Zap } from "lucide-react";
+import { Bell, CalendarDays, Gift, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/layout/page-shell";
-import { Reveal } from "@/components/ui/reveal";
 import { useAuth } from "@/lib/auth/use-auth";
 import { useRecipients, nextOccurrenceDate, type ConciergeNotification } from "@/lib/hooks/use-recipients";
 import { detectUserRegion } from "@/lib/data/holidays";
 import { initials } from "@/lib/utils";
 import { CountUp } from "@/components/ui/count-up";
-import { AmbientParticles } from "@/components/ui/ambient-particles";
 import { AutoGiftOnboardingWizard } from "@/components/autogift/autogift-onboarding-wizard";
 import { GiftSurveyModal } from "@/components/autogift/autogift-survey-modal";
 import { AutoGiftCalendar } from "@/components/autogift/autogift-calendar";
+import { RoundTableScene, type RoundTableStep } from "@/components/roundtable/round-table-scene";
+
+// The walkthrough that opens the page. Every line restates something the
+// page already says further down (see "How the agent works").
+const AUTOGIFT_STEPS: RoundTableStep[] = [
+  {
+    highlight: "seats",
+    title: "Your people, saved once",
+    body: "Add people and their key dates in People. A reminder is set weeks ahead of each one.",
+  },
+  {
+    highlight: "center",
+    title: "A gift, with a reason",
+    body: "The agent reasons through their profile and proposes what to give, with a reason for each pick.",
+  },
+  {
+    highlight: "delivery",
+    title: "Nothing ships until you approve",
+    body: "You approve first. Only then is your saved card charged and the order fulfilled and shipped.",
+  },
+];
+
+const HERO_OUTLINE_BUTTON = "rounded-full border-white/20 bg-white/5 px-5 text-white hover:bg-white/15 hover:text-white";
 
 export default function ConciergePage() {
   const { user, profile, loading } = useAuth();
@@ -86,28 +107,24 @@ export default function ConciergePage() {
             onClose={() => setShowOnboarding(false)}
           />
         )}
-        <div className="relative overflow-hidden rounded-2xl bg-black px-6 py-16 text-center sm:px-12">
-          <div className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-givit-ember/25 blur-3xl" />
-          <div className="pointer-events-none absolute -right-16 bottom-0 h-64 w-64 rounded-full bg-givit-coral/20 blur-3xl" />
-          <AmbientParticles />
-          <div className="relative mx-auto flex max-w-lg flex-col items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl givit-gradient givit-glow">
-              <Bell className="h-6 w-6 text-white" />
-            </div>
-            <h2 className="font-serif text-3xl font-bold text-white">Gifting on autopilot.</h2>
-            <p className="text-sm leading-6 text-white/70">Save your people once in People. AutoGift reminds you 5–6 weeks out, builds a personalized bundle, and only charges once you approve it.</p>
-            <div className="mt-2 flex flex-wrap justify-center gap-3">
-              <Button asChild className="rounded-full givit-gradient px-6 text-white hover:brightness-110"><Link href="/signup?next=/concierge">Create free account</Link></Button>
-              <Button asChild variant="outline" className="rounded-full border-white/20 bg-white/10 px-6 text-white hover:bg-white/20"><Link href="/login?next=/concierge">Log in</Link></Button>
-            </div>
-            <button onClick={() => setShowOnboarding(true)} className="mt-1 text-xs font-semibold text-white/50 underline-offset-4 hover:text-white/80 hover:underline">
+        <RoundTableScene
+          seats={[]}
+          steps={AUTOGIFT_STEPS}
+          eyebrow="GIVIT AutoGift"
+          title={<>Gifting on <span className="font-semibold givit-gradient-text">autopilot.</span></>}
+          lede="Save your people once in People. AutoGift reminds you 5 to 6 weeks out, builds a personalized bundle, and only charges once you approve it."
+        >
+          <Button asChild className="rounded-full givit-gradient px-6 text-white hover:brightness-110"><Link href="/signup?next=/concierge">Create free account</Link></Button>
+          <Button asChild variant="outline" className={HERO_OUTLINE_BUTTON}><Link href="/login?next=/concierge">Log in</Link></Button>
+          <div className="flex w-full flex-col items-start gap-2 pt-1">
+            <button type="button" onClick={() => setShowOnboarding(true)} className="text-left text-xs font-semibold text-white/50 underline-offset-4 hover:text-white/80 hover:underline">
               Just want a quick look first? Take the 60-second tour →
             </button>
             <a href="https://calendly.com/atticusmoes/new-meeting?month=2026-07" target="_blank" rel="noopener noreferrer" className="text-xs text-white/40 underline-offset-4 hover:text-white/70 hover:underline">
               Prefer to talk it through? Contact us
             </a>
           </div>
-        </div>
+        </RoundTableScene>
       </PageShell>
     );
   }
@@ -136,10 +153,10 @@ export default function ConciergePage() {
           <div className="w-full max-w-md rounded-2xl bg-card p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full givit-gradient text-sm font-bold text-white">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border font-mono text-xs font-bold text-givit-ink">
                   {initials(calendarPerson.name)}
                 </div>
-                <p className="font-serif text-lg font-bold text-givit-ink">{calendarPerson.name}'s dates</p>
+                <p className="text-lg font-medium tracking-tight text-givit-ink">{calendarPerson.name}'s dates</p>
               </div>
               <button type="button" onClick={() => setCalendarPersonId(null)} aria-label="Close calendar" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
                 <X className="h-4 w-4" />
@@ -150,114 +167,123 @@ export default function ConciergePage() {
         </div>
       )}
 
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold uppercase tracking-widest text-givit-ember">
-            <span>GIVIT</span>
-            <span>AUTOGIFT</span>
-            <span className="text-muted-foreground"><CountUp value={onAutoGift.length} className="font-mono" /> on automation</span>
-          </div>
-          <h1 className="mt-1 font-serif text-3xl font-bold text-givit-ink">Your gifting agent</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Every date tracked in <Link href="/people" className="text-givit-ember hover:underline">People</Link>: the agent watches the calendar and reasons through what to give, you approve before anything ships.</p>
-        </div>
-        <div className="flex gap-2">
-          {activeNotifications.length > 0 && (
-            <div className="relative">
-              <Button
-                onClick={() => setShowNotifications(!showNotifications)}
-                variant="outline"
-                className="rounded-full relative"
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-givit-ember text-[9px] font-bold text-white">
-                  {activeNotifications.length}
-                </span>
-              </Button>
-              {showNotifications && (
-                <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-border bg-card shadow-2xl">
-                  <div className="border-b border-border p-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-givit-ember">Notifications</p>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    {activeNotifications.length === 0 ? (
-                      <p className="p-3 text-center text-xs text-muted-foreground">No new notifications</p>
-                    ) : (
-                      activeNotifications.map((n) => (
-                        <div key={n.id} className="flex items-start gap-2 rounded-lg p-2.5 text-xs hover:bg-muted/50">
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-givit-ember/10 text-givit-ember">
-                            <Bell className="h-3 w-3" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-foreground">{n.recipientName}'s {n.occasion}</p>
-                            <p className="text-muted-foreground">{n.daysUntil} days away</p>
-                          </div>
-                          <button
-                            onClick={() => setSurveyNotification(n)}
-                            className="shrink-0 rounded bg-givit-ember px-2 py-1 font-semibold text-white hover:bg-givit-ember-hover"
-                          >
-                            Survey
-                          </button>
-                          <button
-                            onClick={() => dismissNotification(n.id)}
-                            className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            aria-label="Dismiss AutoGift reminder"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <RoundTableScene
+        className="mb-8"
+        seats={recipients.map((r) => ({ id: r.id, label: r.name }))}
+        steps={AUTOGIFT_STEPS}
+        eyebrow="GIVIT AutoGift"
+        title={<>Your <span className="font-semibold givit-gradient-text">gifting agent</span></>}
+        lede={
+          <>Every date tracked in <Link href="/people" className="text-givit-ember hover:underline">People</Link>: the agent watches the calendar and reasons through what to give, you approve before anything ships.</>
+        }
+      >
+        <Button asChild variant="outline" className={HERO_OUTLINE_BUTTON}>
+          <Link href="/people"><UserRound className="h-4 w-4" /> Manage people</Link>
+        </Button>
+        <Button asChild variant="outline" className={HERO_OUTLINE_BUTTON}>
+          <Link href="/gift"><Gift className="h-4 w-4" /> Find a gift now!</Link>
+        </Button>
+        <span className="font-mono text-xs font-bold uppercase tracking-widest text-white/50">
+          <CountUp value={onAutoGift.length} className="font-mono text-white" /> on automation
+        </span>
+      </RoundTableScene>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_290px]">
-        <div id="reminders" className="scroll-mt-40 space-y-4">
-          {recipients.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-16 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-givit-ember/10 text-3xl">
-                <UserRound className="h-6 w-6 text-givit-ember" />
+      {activeNotifications.length > 0 && (
+        <div className="mb-8 flex items-center justify-between gap-3 border-b border-border pb-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">
+            {activeNotifications.length} {activeNotifications.length === 1 ? "reminder" : "reminders"} waiting
+          </p>
+          <div className="relative">
+            <Button
+              onClick={() => setShowNotifications(!showNotifications)}
+              variant="outline"
+              aria-label="Show AutoGift reminders"
+              aria-expanded={showNotifications}
+              className="rounded-full relative"
+            >
+              <Bell className="h-4 w-4" />
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-givit-ember text-[9px] font-bold text-white">
+                {activeNotifications.length}
+              </span>
+            </Button>
+            {showNotifications && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2.5rem)] rounded-xl border border-border bg-card shadow-2xl">
+                <div className="border-b border-border p-3">
+                  <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">Notifications</p>
+                </div>
+                <div className="max-h-64 divide-y divide-border overflow-y-auto px-3">
+                  {activeNotifications.map((n) => (
+                    <div key={n.id} className="flex items-center gap-2 py-2.5 text-xs">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-foreground">{n.recipientName}'s {n.occasion}</p>
+                        <p className="font-mono text-muted-foreground">{n.daysUntil} days away</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSurveyNotification(n)}
+                        className="shrink-0 rounded-full bg-givit-ember px-3 py-1 font-semibold text-white hover:bg-givit-ember-hover"
+                      >
+                        Survey
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => dismissNotification(n.id)}
+                        className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="Dismiss AutoGift reminder"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="mt-4 font-serif text-xl font-bold text-givit-ink">No one to remind you about yet</p>
-              <p className="mt-2 max-w-xs text-sm text-muted-foreground">Add people and their dates in People. Reminders, calendar, and automation all live here once they're saved.</p>
-              <Button asChild className="mt-5 rounded-lg bg-givit-ember text-white hover:bg-givit-ember-hover">
-                <Link href="/people"><UserRound className="h-4 w-4" /> Go to People</Link>
-              </Button>
-              <Button onClick={() => setShowOnboarding(true)} variant="outline" className="mt-3 rounded-lg">
-                Retake onboarding tour
-              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div id="reminders" className="min-w-0 scroll-mt-40 space-y-12">
+          {recipients.length === 0 ? (
+            <div className="border-y border-border py-12">
+              <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">Nobody saved yet</p>
+              <p className="mt-2 text-2xl font-light tracking-tight text-givit-ink sm:text-3xl">No one to <span className="font-semibold givit-gradient-text">remind you about</span> yet</p>
+              <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">Add people and their dates in People. Reminders, calendar, and automation all live here once they're saved.</p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Button asChild className="rounded-full bg-givit-ember text-white hover:bg-givit-ember-hover">
+                  <Link href="/people"><UserRound className="h-4 w-4" /> Go to People</Link>
+                </Button>
+                <Button onClick={() => setShowOnboarding(true)} variant="outline" className="rounded-full">
+                  Retake onboarding tour
+                </Button>
+              </div>
             </div>
           ) : (
             <>
-              <div className="givit-section">
-                <div className="mb-3 flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-givit-ember" />
-                  <h2 className="font-serif text-lg font-bold text-givit-ink">People on AutoGift</h2>
-                  <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">{onAutoGift.length} active</span>
+              <section>
+                <div className="flex items-end justify-between gap-3 border-b border-border pb-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">Automation</p>
+                    <h2 className="mt-1 text-2xl font-light tracking-tight text-givit-ink">People on <span className="font-semibold givit-gradient-text">AutoGift</span></h2>
+                  </div>
+                  <span className="shrink-0 font-mono text-xs font-bold uppercase tracking-widest text-success">{onAutoGift.length} active</span>
                 </div>
                 {onAutoGift.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="pt-4 text-sm text-muted-foreground">
                     No one has AutoGift turned on yet. Enable it for a person on the <Link href="/people" className="text-givit-ember hover:underline">People</Link> page.
                   </p>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <ul className="grid gap-x-10 sm:grid-cols-2">
                     {onAutoGift.map((r) => {
                       const upcoming = r.occasions
                         .filter((o) => o.date)
                         .map((o) => ({ ...o, parsed: nextOccurrenceDate(o.date) }))
                         .sort((a, b) => a.parsed.getTime() - b.parsed.getTime())[0];
                       return (
-                        <div
-                          key={r.id}
-                          className="flex items-center gap-3 rounded-xl border border-border/40 bg-card p-3 transition hover:border-givit-ember/40 hover:shadow-sm"
-                        >
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full givit-gradient text-sm font-bold text-white">
+                        <li key={r.id} className="group flex items-center gap-3 border-b border-border py-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border font-mono text-xs font-bold text-givit-ink transition-colors group-hover:border-givit-ember/60">
                             {initials(r.name)}
-                          </div>
+                          </span>
                           <button
                             type="button"
                             onClick={() =>
@@ -273,51 +299,52 @@ export default function ConciergePage() {
                             }
                             className="min-w-0 flex-1 text-left"
                           >
-                            <p className="truncate text-sm font-semibold text-foreground">{r.name}</p>
-                            <p className="truncate text-xs font-medium text-givit-ember">
+                            <span className="block truncate text-sm font-semibold text-foreground">{r.name}</span>
+                            <span className="block truncate text-xs font-medium text-givit-ember">
                               {upcoming ? `Build for ${upcoming.label}, ${upcoming.parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" })} →` : "Build their gift →"}
-                            </p>
+                            </span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setCalendarPersonId(r.id)}
                             title={`${r.name}'s reminder dates`}
+                            aria-label={`${r.name}'s reminder dates`}
                             className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition hover:bg-givit-sand hover:text-foreground"
                           >
                             <CalendarDays className="h-4 w-4" />
                           </button>
-                        </div>
+                        </li>
                       );
                     })}
-                  </div>
+                  </ul>
                 )}
-              </div>
+              </section>
 
               {upcomingAll.length > 0 && (
-                <div className="givit-section">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-givit-ember" />
-                      <h2 className="font-serif text-lg font-bold text-givit-ink">Upcoming</h2>
+                <section>
+                  <div className="flex items-end justify-between gap-3 border-b border-border pb-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">Calendar</p>
+                      <h2 className="mt-1 text-2xl font-light tracking-tight text-givit-ink">Upcoming</h2>
                     </div>
                     <button
                       type="button"
                       onClick={() => setShowCalendar((v) => !v)}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border/40 px-3 py-1 text-xs font-semibold text-muted-foreground transition hover:border-givit-ember/40 hover:text-givit-ember"
+                      className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground underline-offset-4 transition hover:text-givit-ember hover:underline"
                     >
                       <CalendarDays className="h-3.5 w-3.5" /> {showCalendar ? "Hide calendar" : "View calendar"}
                     </button>
                   </div>
-                  <div className="space-y-2">
+                  <ul>
                     {upcomingAll.map((o, i) => {
                       const daysUntil = Math.ceil((o.parsed.getTime() - Date.now()) / 86400000);
-                      const urgency = daysUntil <= 14 ? "bg-destructive/10 text-destructive" : daysUntil <= 42 ? "bg-amber-50 text-amber-700" : "bg-success/10 text-success";
+                      const urgency = daysUntil <= 14 ? "text-destructive" : daysUntil <= 42 ? "text-amber-600" : "text-success";
                       const scheduled = scheduledKeys.has(`${o.recipient}-${o.label}-${o.date}`);
                       return (
-                        <div key={i} className="flex items-center gap-3 rounded-xl border border-border/50 bg-card p-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full givit-gradient text-xs font-bold text-white">
-                            {o.recipient[0]?.toUpperCase()}
-                          </div>
+                        <li key={i} className="flex items-center gap-4 border-b border-border py-3">
+                          <span className="w-14 shrink-0 font-mono text-xs font-bold uppercase tracking-wider text-givit-ink">
+                            {o.parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-foreground">{o.recipient} · {o.label}</p>
                             <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -328,14 +355,12 @@ export default function ConciergePage() {
                               )}
                             </p>
                           </div>
-                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${urgency}`}>
-                            {o.parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {daysUntil}d
-                          </span>
-                        </div>
+                          <span className={`shrink-0 font-mono text-sm font-bold ${urgency}`}>{daysUntil}d</span>
+                        </li>
                       );
                     })}
-                  </div>
-                </div>
+                  </ul>
+                </section>
               )}
 
               {showCalendar && <AutoGiftCalendar recipients={recipients} scheduledKeys={scheduledKeys} region={region} />}
@@ -343,37 +368,26 @@ export default function ConciergePage() {
           )}
         </div>
 
-        <aside className="space-y-4">
-          <Reveal variant="triangle" delayMs={100}>
-          <div className="rounded-xl border border-givit-ember/20 bg-gradient-to-br from-givit-ember/15 to-givit-coral/10 p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-givit-ember text-white">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="font-serif text-base font-bold text-givit-ink">How the agent works</h2>
-                <ol className="mt-2 space-y-1.5 text-xs leading-5 text-muted-foreground">
-                  <li>1. Add people and their key dates in People</li>
-                  <li>2. 35 days before, the agent emails the survey at 10:00 AM EST</li>
-                  <li>3. It reasons through the profile and proposes gifts, cards (+$5), flowers (+$25), and activities, with a reason for each</li>
-                  <li>4. You approve, then your saved card is charged and the order is fulfilled and shipped (fully autonomous purchasing is next)</li>
-                </ol>
-                <div className="mt-3 rounded-lg bg-black/20 p-2.5 text-xs">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ink/80">Pricing</p>
-                  <p className="mt-1 text-muted-foreground">Calculated only after AI builds a tailored bundle. You approve before any charge.</p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-2">
-              <Button asChild variant="outline" className="rounded-full text-xs h-9 w-full">
-                <Link href="/people"><UserRound className="h-3.5 w-3.5" /> Manage people</Link>
-              </Button>
-              <Button asChild className="rounded-full bg-givit-ember text-white hover:bg-givit-ember-hover text-xs h-9 w-full">
-                <Link href="/gift"><Gift className="h-3.5 w-3.5" /> Find a gift now!</Link>
-              </Button>
-            </div>
+        <aside className="min-w-0 lg:border-l lg:border-border lg:pl-8">
+          <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">The process</p>
+          <h2 className="mt-1 text-2xl font-light tracking-tight text-givit-ink">How the agent works</h2>
+          <ol className="mt-4 text-sm leading-6 text-muted-foreground">
+            {[
+              "Add people and their key dates in People",
+              "35 days before, the agent emails the survey at 10:00 AM EST",
+              "It reasons through the profile and proposes gifts, cards (+$5), flowers (+$25), and activities, with a reason for each",
+              "You approve, then your saved card is charged and the order is fulfilled and shipped (fully autonomous purchasing is next)",
+            ].map((text, i) => (
+              <li key={i} className="flex gap-3 border-t border-border py-3">
+                <span className="pt-0.5 font-mono text-xs font-bold text-givit-ember">{String(i + 1).padStart(2, "0")}</span>
+                <span>{text}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="border-t border-border pt-3">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ink/80">Pricing</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">Calculated only after AI builds a tailored bundle. You approve before any charge.</p>
           </div>
-          </Reveal>
         </aside>
       </div>
     </PageShell>

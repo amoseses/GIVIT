@@ -1,7 +1,8 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import { Bell, CalendarPlus, CheckCircle2, CreditCard, Gift, Loader2, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2, X } from "lucide-react";
+import { Bell, CalendarPlus, CheckCircle2, CreditCard, Gift, Loader2, Plus, RefreshCw, ShieldCheck, Trash2, X } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { toast } from "sonner";
 
 import { approveGiftApprovalAction, generateGiftApprovalAction, removeGiftApprovalItemAction, saveConciergeRecipientAction, saveConciergeRecipientsAction, updateConciergeProfileAction, updateRecipientAutomationAction } from "@/app/actions/concierge";
@@ -305,7 +306,7 @@ function SurveyForm({ recipient, occasion, approval }: { recipient: ConciergeRec
       <div className="mt-3 grid gap-2 sm:grid-cols-2"><div className="space-y-2"><Label className="text-xs">Budget</Label><Input name="budget" type="number" defaultValue={Math.round(recipient.default_budget_cents / 100)} /></div><div className="space-y-2"><Label className="text-xs">Style / vibe</Label><Input name="style" placeholder="cozy, luxury, practical…" /></div></div>
       <div className="mt-2 space-y-2"><Label className="text-xs">Survey answers</Label><Textarea name="survey_answers" placeholder="What would make this feel thoughtful? Any sizes, colors, hobbies, or constraints?" /></div>
       {approval ? <Input className="mt-2" name="regeneration_note" placeholder="Optional note for regeneration" /> : null}
-      <Button size="sm" className="mt-3 bg-givit-ember text-white hover:bg-givit-ember-hover"><Sparkles className="mr-2 h-4 w-4" />{approval ? "Re-generate" : "Generate gift box"}</Button>
+      <Button size="sm" className="mt-3 bg-givit-ember text-white hover:bg-givit-ember-hover"><RibbonBow className="mr-2 h-4 w-4" />{approval ? "Re-generate" : "Generate gift box"}</Button>
     </form>
   );
 }

@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { Brain, Sparkles } from "lucide-react";
+import { Brain } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 
 import { useAuth } from "@/lib/auth/use-auth";
 import { getGiftRecipients } from "@/lib/supabase/db";
-import { initials } from "@/lib/utils";
+import { PersonPortrait } from "@/components/personalization/person-portrait";
 
 type MemoryEntry = {
   id: string;
   name: string;
   interests: string[];
   updatedAt: string;
+  photoUrl: string | null;
 };
 
 function timeAgo(iso: string) {
@@ -41,7 +43,7 @@ export function RecentMemoryFeed() {
         .filter((r) => (r.interests ?? []).length > 0)
         .sort((a, b) => new Date(b.updated_at ?? b.created_at).getTime() - new Date(a.updated_at ?? a.created_at).getTime())
         .slice(0, 4)
-        .map((r) => ({ id: r.id, name: r.name, interests: r.interests ?? [], updatedAt: r.updated_at ?? r.created_at }));
+        .map((r) => ({ id: r.id, name: r.name, interests: r.interests ?? [], updatedAt: r.updated_at ?? r.created_at, photoUrl: r.photo_url ?? null }));
       setEntries(withInterests);
     });
     return () => { mounted = false; };
@@ -51,9 +53,9 @@ export function RecentMemoryFeed() {
 
   return (
     <section className="container py-8 md:py-12">
-      <div className="mb-5 flex items-center gap-2">
-        <Brain className="h-4 w-4 text-givit-ember" />
-        <h2 className="font-serif text-2xl font-bold text-foreground md:text-3xl">What GIVIT remembers</h2>
+      <div className="mb-5">
+        <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ember">Recently learned</p>
+        <h2 className="mt-1 text-3xl font-light tracking-tight text-foreground md:text-4xl">Latest <span className="font-semibold">notes</span></h2>
       </div>
       {/* A divided list instead of a grid of bordered cards -- four
           near-identical boxes in a row reads as a dashboard template, and a
@@ -61,22 +63,16 @@ export function RecentMemoryFeed() {
       <div className="stagger-children divide-y divide-border/40">
         {entries.map((entry) => (
           <div key={entry.id} className="slide-up flex items-start gap-4 py-4 opacity-0 first:pt-0 last:pb-0">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full givit-gradient text-base font-bold text-white">
-              {initials(entry.name)}
-            </div>
+            <PersonPortrait recipientId={entry.id} name={entry.name} photoUrl={entry.photoUrl} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="text-base text-foreground">
                 <span className="font-semibold">{entry.name}</span>
                 <span className="text-muted-foreground"> · updated {timeAgo(entry.updatedAt)}</span>
               </p>
-              <p className="mt-1.5 flex flex-wrap gap-1.5">
-                {entry.interests.slice(0, 5).map((interest) => (
-                  <span key={interest} className="rounded-full bg-givit-sand px-2.5 py-1 text-xs font-medium text-givit-ink">{interest}</span>
-                ))}
-              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{entry.interests.slice(0, 5).join(" · ")}</p>
             </div>
             <Link href={`/gift?q=${encodeURIComponent(`Gift for ${entry.name}`)}`} className="shrink-0 self-center inline-flex items-center gap-1 text-sm font-semibold text-givit-ember hover:underline">
-              <Sparkles className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Find something</span>
+              <RibbonBow className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Find something</span>
             </Link>
           </div>
         ))}

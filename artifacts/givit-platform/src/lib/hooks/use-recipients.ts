@@ -16,6 +16,7 @@ export type Recipient = {
   budgetCents?: number | null;
   notes?: string | null;
   automationEnabled?: boolean;
+  photoUrl?: string | null;
 };
 
 const NOTIFICATION_LEAD_DAYS = 35; // 5 weeks before -- default when an occasion doesn't set its own
@@ -175,6 +176,7 @@ export function useRecipients(user: { id: string; email?: string } | User | null
                 avoidTerms: row.avoid_terms ?? [],
                 budgetCents: row.default_budget_cents ?? null,
                 notes: row.notes ?? null,
+                photoUrl: row.photo_url ?? null,
                 automationEnabled: row.automation_enabled ?? true,
               })) as Recipient[];
               setRecipients(mapped);

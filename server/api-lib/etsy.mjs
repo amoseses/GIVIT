@@ -275,3 +275,71 @@ export async function syncEtsyProducts() {
   }
   return { synced: rows.length, added: newRows.length, refreshed: refreshRows.length, errors };
 }
+
+// ---------------------------------------------------------------------
+// Live "popular on Etsy right now" for the Trending rail.
+//
+// Etsy's Open API v3 has no trending endpoint (v2's was retired), so this
+// is the closest honest equivalent: search active listings for what's in
+// season, then rank them by how many shoppers have favourited each one
+// (`num_favorers`, a real number Etsy returns on every listing). The rail
+// labels these "Popular on Etsy" -- not "trending on GIVIT", which is
+// reserved for products with real clicks here.
+//
+// Cached in memory per server instance; api/metadata.ts adds a CDN cache
+// header on top, so Etsy sees a handful of calls an hour at most.
+const TRENDING_TTL_MS = 30 * 60 * 1000;
+const TRENDING_SEARCH_LIMIT = 40;
+const TRENDING_RETURN_LIMIT = 16;
+let trendingCache = { key: "", at: 0, items: [] };
+
+function seasonalKeywords(now = new Date()) {
+  const month = now.getMonth();
+  if (month === 10 || month === 11) return "christmas gift";
+  if (month === 0 || month === 1) return "valentines gift";
+  if (month === 3 || month === 4) return "mothers day gift";
+  if (month === 5) return "fathers day gift";
+  return "personalized gift";
+}
+
+export async function fetchEtsyTrending() {
+  const keywords = seasonalKeywords();
+  if (trendingCache.key === keywords && Date.now() - trendingCache.at < TRENDING_TTL_MS && trendingCache.items.length > 0) {
+    return trendingCache.items;
+  }
+  const { keystring, sharedSecret } = parseEtsyCredentials(process.env.ETSY_API_KEY, process.env.ETSY_SHARED_SECRET);
+  if (!keystring || !sharedSecret) throw new Error("Etsy API credentials are not configured on the server.");
+  const apiKey = `${keystring}:${sharedSecret}`;
+
+  const params = new URLSearchParams({ keywords, limit: String(TRENDING_SEARCH_LIMIT), sort_on: "score", currency: "USD" });
+  const res = await etsyFetch(`${ETSY_API_BASE}/listings/active?${params.toString()}`, apiKey);
+  if (!res.ok) throw new Error(`Etsy listings/active failed (${res.status})`);
+  const body = await res.json();
+  const listings = (Array.isArray(body?.results) ? body.results : [])
+    .sort((a, b) => (b.num_favorers ?? 0) - (a.num_favorers ?? 0))
+    .slice(0, TRENDING_RETURN_LIMIT + 6); // a few spare for ones with no image / non-USD price
+
+  const enrichmentById = await fetchImagesAndShopsByIds(apiKey, listings.map((l) => l.listing_id));
+  const items = [];
+  for (const listing of listings) {
+    const enrichment = enrichmentById.get(listing.listing_id);
+    const converted = listing.converted_price;
+    const priceCents = centsFromEtsyPrice(converted) ?? centsFromEtsyPrice(listing.price);
+    const currency = converted?.currency_code ?? listing.price?.currency_code;
+    const image = Array.isArray(enrichment?.images) ? enrichment.images.map(bestImageUrl).find(Boolean) : null;
+    if (!image || currency !== "USD" || !priceCents) continue;
+    items.push({
+      id: String(listing.listing_id),
+      slug: `etsy-${listing.listing_id}`,
+      title: cleanTitle(listing.title),
+      priceCents,
+      image,
+      url: listing.url,
+      shop: enrichment?.shop?.shop_name || "Etsy shop",
+      favorites: listing.num_favorers ?? 0,
+    });
+    if (items.length >= TRENDING_RETURN_LIMIT) break;
+  }
+  trendingCache = { key: keywords, at: Date.now(), items };
+  return items;
+}

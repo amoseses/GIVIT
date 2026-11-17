@@ -1368,3 +1368,12 @@ DROP TRIGGER IF EXISTS guard_autogift_order_insert ON autogift_orders;
 CREATE TRIGGER guard_autogift_order_insert
   BEFORE INSERT ON autogift_orders
   FOR EACH ROW EXECUTE FUNCTION guard_autogift_order_insert();
+
+-- ============================================================
+-- PHOTOS FOR SAVED PEOPLE
+-- ============================================================
+-- One optional picture per saved person, shown on their profile card,
+-- the People list and the memory graph. Until this has been run, photos
+-- still work but are kept only in the browser that uploaded them (see
+-- src/lib/recipient-photos.ts).
+ALTER TABLE gift_recipients ADD COLUMN IF NOT EXISTS photo_url TEXT;

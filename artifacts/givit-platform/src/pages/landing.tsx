@@ -1,13 +1,27 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowRight, Bell, ChevronDown, Gift, Heart, PackageCheck, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { ArrowRight, Bell, ChevronDown, Gift, Heart, PackageCheck, ShieldCheck, UserRound } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/use-auth";
 import { GiftBox3D } from "@/components/ui/gift-box-3d";
-import { AmbientParticles } from "@/components/ui/ambient-particles";
+import { GiftCosmos } from "@/components/ui/gift-cosmos";
 import { useScrollProgress } from "@/lib/hooks/use-scroll-progress";
 import { getMarketplaceProductBySlug } from "@/lib/data/marketplace";
 import { formatMoney } from "@/lib/format";
+import { Reveal } from "@/components/ui/reveal";
+import { ScrollProgressRail, type RailSection } from "@/components/layout/scroll-progress-rail";
+import { MembershipSection } from "@/components/personalization/membership-section";
+
+// Sections on the progress rail, in page order. "membership" only exists
+// on the page when that flag is on; the rail skips ids it can't find.
+const RAIL_SECTIONS: RailSection[] = [
+  { id: "top", label: "Start" },
+  { id: "story", label: "How it works" },
+  { id: "gifts", label: "Real gifts" },
+  { id: "membership", label: "Membership" },
+  { id: "begin", label: "Begin" },
+];
 
 const ROTATING_PROMPTS = [
   "a mom who loves gardening and cozy nights in",
@@ -15,18 +29,6 @@ const ROTATING_PROMPTS = [
   "a coworker you don't know that well",
   "a partner's anniversary, no clichés",
   "a dad who says he \"doesn't need anything\"",
-];
-
-// Ambient floating icons scattered around the splash — purely decorative
-// movement, kept low-opacity and pointer-events-none so they never compete
-// with the actual content or intercept clicks.
-// Cut from 6 icons to 4, and each dimmed further -- feedback was that the
-// hero read as a bit too bright/busy for a minimalist site.
-const FLOATING_ICONS = [
-  { Icon: Gift, className: "left-[8%] top-[18%] h-7 w-7 text-givit-ember/15", duration: "7s", delay: "0s" },
-  { Icon: Sparkles, className: "right-[12%] top-[14%] h-6 w-6 text-givit-coral/18", duration: "8.5s", delay: "0.6s" },
-  { Icon: Heart, className: "right-[18%] bottom-[28%] h-6 w-6 text-givit-ember/12", duration: "9s", delay: "0.3s" },
-  { Icon: Sparkles, className: "right-[7%] top-[50%] h-5 w-5 text-givit-coral/12", duration: "6.8s", delay: "0.9s" },
 ];
 
 // Trimmed from 4 steps to 3 (and from 120vh to 90vh each, ~460vh down to
@@ -39,7 +41,7 @@ const STORY_STEPS = [
     body: "Names, dates, interests — the details you'd normally hold in your head, or forget.",
   },
   {
-    Icon: Sparkles,
+    Icon: RibbonBow,
     title: "Your Gift AI remembers",
     body: "It proposes a real bundle before every date, with a stated reason for each pick — not a guess.",
   },
@@ -66,7 +68,7 @@ function StoryScroll() {
   const rotationY = 8 + progress * 380;
 
   return (
-    <section ref={ref} className="relative bg-black" style={{ height: `${STORY_STEPS.length * 90}vh` }}>
+    <section id="story" ref={ref} className="relative bg-black" style={{ height: `${STORY_STEPS.length * 90}vh` }}>
       <div className="sticky top-0 flex h-screen items-center overflow-hidden">
         <div className="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-givit-ember/10 blur-3xl" />
         <div className="container relative grid items-center gap-10 md:grid-cols-2 md:gap-16">
@@ -78,7 +80,7 @@ function StoryScroll() {
               <p className="mt-4 text-xs font-bold uppercase tracking-widest text-givit-coral">
                 Step {activeStep + 1} of {STORY_STEPS.length}
               </p>
-              <h3 className="mt-1 font-serif text-3xl font-bold text-white md:text-4xl">{step.title}</h3>
+              <h3 className="mt-2 text-4xl font-light leading-tight tracking-tight text-white md:text-5xl">{step.title}</h3>
               <p className="mx-auto mt-3 max-w-sm text-base leading-relaxed text-white/60 md:mx-0">{step.body}</p>
             </div>
           </div>
@@ -113,18 +115,22 @@ function ProductShowcase() {
   if (products.length === 0) return null;
 
   return (
-    <section className="relative bg-black px-6 py-20 text-center text-white">
-      <p className="text-xs font-bold uppercase tracking-widest text-givit-coral">Real gifts, not just AI talk</p>
-      <h2 className="mt-2 font-serif text-3xl font-bold md:text-4xl">Pulled from a catalog of real, in-stock products.</h2>
-      <div className="mx-auto mt-10 grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
-        {products.map((product) => {
+    <section id="gifts" className="relative bg-black px-6 py-24 text-center text-white">
+      <Reveal variant="blur">
+        <p className="text-xs font-bold uppercase tracking-widest text-givit-coral">Real gifts, not just AI talk</p>
+        <h2 className="mx-auto mt-3 max-w-2xl text-3xl font-light leading-tight tracking-tight md:text-5xl">
+          Pulled from a catalog of <span className="font-semibold">real, in-stock products.</span>
+        </h2>
+      </Reveal>
+      <div className="mx-auto mt-12 grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
+        {products.map((product, i) => {
           const image = product.images[0]?.storage_path;
           const price = product.sale_price_cents ?? product.price_cents;
           return (
+            <Reveal key={product.slug} variant="blur" delayMs={i * 90}>
             <Link
-              key={product.slug}
               href={`/products/${product.slug}`}
-              className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-left transition hover:-translate-y-1 hover:border-white/25"
+              className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-left transition hover:-translate-y-1 hover:border-white/25"
             >
               <div className="aspect-square overflow-hidden bg-white">
                 <img
@@ -139,6 +145,7 @@ function ProductShowcase() {
                 <p className="mt-1 text-sm font-bold text-givit-coral">{formatMoney(price)}</p>
               </div>
             </Link>
+            </Reveal>
           );
         })}
       </div>
@@ -188,23 +195,13 @@ export default function LandingPage() {
 
   return (
     <div className="bg-black">
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black px-6 py-16 text-center text-white">
-      <div className="pointer-events-none absolute -left-24 top-0 h-[360px] w-[360px] animate-drift rounded-full bg-givit-ember/15 blur-3xl" />
-      <div className="pointer-events-none absolute -right-24 bottom-0 h-[360px] w-[360px] animate-drift-slow rounded-full bg-givit-coral/12 blur-3xl" />
-      {/* Toned down further on top of its own default -- this hero already
-          carries its own established motif (floating gift/heart icons,
-          typing cycle text), so the ribbons read as a faint structural
-          texture tying it to the rest of the site rather than another
-          competing layer of motion or brightness. */}
-      <AmbientParticles className="opacity-40" />
-
-      {FLOATING_ICONS.map(({ Icon, className, duration, delay }, i) => (
-        <Icon
-          key={i}
-          className={`animate-particle pointer-events-none absolute hidden sm:block ${className}`}
-          style={{ animationDuration: duration, animationDelay: delay }}
-        />
-      ))}
+    <ScrollProgressRail sections={RAIL_SECTIONS} />
+    {/* The hero sits in its own rounded frame, inset from the edge of
+        the window, with the ribbon cosmos turning slowly behind it. */}
+    <div className="p-2 sm:p-3">
+    <div id="top" data-cosmos-dark className="relative flex min-h-[calc(100vh-1rem)] rounded-[28px] border border-white/10 bg-[#0a0a0d] sm:min-h-[calc(100vh-1.5rem)] flex-col items-center justify-center overflow-hidden px-6 py-16 text-center text-white">
+      <GiftCosmos intensity={0.6} centerY={0.56} scale={1.25} tilt={66} />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,#0a0a0d_78%)]" />
 
       <div className="slide-up mb-10 flex flex-col items-center gap-3" style={{ animationDelay: "0ms" }}>
         <div className="relative">
@@ -217,8 +214,12 @@ export default function LandingPage() {
       </div>
 
       <div className="slide-up relative max-w-2xl" style={{ animationDelay: "80ms" }}>
-        <h1 className="font-serif text-4xl font-bold leading-tight md:text-6xl">
-          A memory for the people you love.
+        <p className="eyebrow-dots mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.3em] text-givit-ember">Remembering</p>
+        {/* Large and light rather than heavy: at this size weight reads
+            as shouting, so the emphasis is carried by one semibold phrase
+            in the brand gradient instead of the whole line being bold. */}
+        <h1 className="text-5xl font-light leading-[1.05] tracking-tight text-white/95 md:text-7xl">
+          A memory for the <span className="givit-gradient-text font-semibold">people you love.</span>
         </h1>
         <p className="mt-5 min-h-[3.5rem] text-lg text-white/70 md:min-h-[2.5rem]">
           Save someone once. Your Gift AI remembers{" "}
@@ -282,12 +283,21 @@ export default function LandingPage() {
       </div>
     </div>
 
+    </div>
+
     <StoryScroll />
 
     <ProductShowcase />
 
-    <div className="relative flex flex-col items-center gap-5 bg-black px-6 py-24 text-center text-white">
-      <h2 className="font-serif text-3xl font-bold md:text-4xl">Ready to never send a bad gift again?</h2>
+    <MembershipSection tone="dark" />
+
+    <div id="begin" className="relative flex flex-col items-center gap-6 overflow-hidden bg-black px-6 py-32 text-center text-white">
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 animate-drift rounded-full bg-givit-ember/12 blur-3xl" />
+      <Reveal variant="blur" className="relative">
+        <h2 className="mx-auto max-w-2xl text-4xl font-light leading-tight tracking-tight md:text-6xl">
+          Ready to never send a <span className="givit-gradient-text font-semibold">bad gift</span> again?
+        </h2>
+      </Reveal>
       {user ? (
         <Button asChild className="h-12 rounded-md givit-gradient px-7 text-sm font-bold text-white shadow-lg givit-glow transition-transform hover:-translate-y-0.5 hover:brightness-110">
           <Link href="/home">Go to Dashboard <ArrowRight className="h-4 w-4" /></Link>

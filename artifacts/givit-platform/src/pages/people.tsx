@@ -1,7 +1,9 @@
+import { PersonPortrait } from "@/components/personalization/person-portrait";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
-import { ArrowRight, Bell, CalendarPlus, Flower2, Lightbulb, Pencil, Plus, Search, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { ArrowRight, Bell, CalendarPlus, Flower2, Lightbulb, Pencil, Plus, Search, Trash2, UserRound, X } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -13,7 +15,6 @@ import { daysInMonth, nextOccurrenceDate, parseLocalDate, toLocalIsoDate } from 
 import { BirthdayAgeInput } from "@/components/personalization/birthday-age-input";
 import { trackEvent, getHints, getAllHints, saveHint, deleteHint } from "@/lib/supabase/db";
 import { parseIcs, type ParsedCalendarEvent } from "@/lib/ics-import";
-import { initials } from "@/lib/utils";
 import { CountUp } from "@/components/ui/count-up";
 import { GoogleCalendarConnect } from "@/components/calendar/google-calendar-connect";
 import { birthdayValidationError } from "@/lib/validation/autogift";
@@ -335,7 +336,7 @@ function AddRecipientModal({ onAdd, onClose, defaultLeadDays }: { onAdd: (recipi
               </div>
               <div className="grid gap-1.5">
                 <label className="flex items-center gap-1.5 text-sm font-semibold">
-                  <Sparkles className="h-3.5 w-3.5 text-givit-ember" /> Tell us about them *
+                  <RibbonBow className="h-3.5 w-3.5 text-givit-ember" /> Tell us about them *
                 </label>
                 <textarea
                   value={person.aboutText}
@@ -697,7 +698,7 @@ function EditRecipientModal({
           <HintsPanel recipientId={recipient.id} recipientName={name} userId={userId} />
           <div className="grid gap-1.5">
             <label className="flex items-center gap-1.5 text-sm font-semibold">
-              <Sparkles className="h-3.5 w-3.5 text-givit-ember" /> Or just describe them (optional)
+              <RibbonBow className="h-3.5 w-3.5 text-givit-ember" /> Or just describe them (optional)
             </label>
             <textarea
               value={aboutText}
@@ -744,9 +745,7 @@ function PersonProfileRow({ recipient, latestHint, onDelete, onEdit, onToggleAut
   return (
     <div className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:gap-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full givit-gradient text-sm font-bold text-white">
-          {initials(recipient.name)}
-        </div>
+        <PersonPortrait recipientId={recipient.id} name={recipient.name} photoUrl={recipient.photoUrl} size="sm" editable />
         <div className="min-w-0">
           <p className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-serif text-base font-bold text-givit-ink">{recipient.name}</span>
@@ -777,7 +776,7 @@ function PersonProfileRow({ recipient, latestHint, onDelete, onEdit, onToggleAut
           title={`Shop for ${recipient.name}`}
           className="flex h-8 w-8 items-center justify-center rounded-full bg-givit-ember/10 text-givit-ember transition hover:bg-givit-ember/20"
         >
-          <Sparkles className="h-3.5 w-3.5" />
+          <RibbonBow className="h-3.5 w-3.5" />
         </Link>
         <label
           title={`AutoGift is ${recipient.automationEnabled !== false ? "on" : "off"} for ${recipient.name}`}

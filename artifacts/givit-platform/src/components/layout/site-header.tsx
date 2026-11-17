@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useTheme } from "next-themes";
-import { Bell, CalendarDays, Gift, LayoutGrid, Sparkles, UserRound } from "lucide-react";
+import { Bell, CalendarDays, Crown, Gift, LayoutGrid, UserRound } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
+
+import { MEMBERSHIP_ENABLED, MEMBERSHIP_PRICE_LABEL, isActiveMember } from "@/lib/credits/credits";
 
 import { HeaderProfileButton } from "@/components/layout/header-profile-button";
 import { CreditBalanceBadge } from "@/components/layout/credit-balance-badge";
@@ -9,13 +12,16 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useAuth } from "@/lib/auth/use-auth";
 import { HolidayWreath } from "@/components/ui/holiday-wreath";
 import { HolidayGarland } from "@/components/ui/holiday-garland";
+import { isHolidaySeason } from "@/lib/season";
+
+const HOLIDAY = isHolidaySeason();
 
 // Your Gift AI leads and is the only filled item: it's the product now,
 // not one tab among equals. Marketplace sits last and muted on purpose --
 // a ~200-item catalog can't win on selection, so it's a place to wander
 // rather than the front door.
 const NAV_ITEMS = [
-  { href: "/gift", label: "Your Gift AI", icon: Sparkles, primary: true },
+  { href: "/gift", label: "Your Gift AI", icon: RibbonBow, primary: true },
   { href: "/home", label: "Dashboard", icon: LayoutGrid },
   { href: "/people", label: "People", icon: UserRound },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
@@ -46,7 +52,7 @@ export function SiteHeader() {
           <Link href="/home" className="shrink-0 flex items-center gap-2">
             <span className="relative shrink-0">
               <img src="/Screenshot 2026-06-23 095149.png" alt="GIVIT" className="h-8 w-8 rounded-md object-cover" />
-              <HolidayWreath className="absolute -right-2.5 -top-2.5 h-5 w-5 drop-shadow-sm" />
+              {HOLIDAY && <HolidayWreath className="absolute -right-2.5 -top-2.5 h-5 w-5 drop-shadow-sm" />}
             </span>
             <span className="font-serif text-xl font-bold tracking-tight hidden sm:block">
               GIVIT
@@ -54,6 +60,30 @@ export function SiteHeader() {
           </Link>
 
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            {/* Membership, always in view next to the credit balance: a
+                gold crown once you're in, a "Join" pill until then. Gated
+                with every other membership surface. */}
+            {MEMBERSHIP_ENABLED ? (
+              isActiveMember(profile?.membership_status) ? (
+                <Link
+                  href="/account#membership"
+                  title="You're a GIVIT Member"
+                  className="flex h-8 items-center gap-1 rounded-md bg-gradient-to-br from-amber-300 to-amber-500 px-2.5 text-xs font-bold text-black shadow-sm shadow-amber-500/30"
+                >
+                  <Crown className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Member</span>
+                </Link>
+              ) : (
+                <Link
+                  href={user ? "/account#membership" : "/signup?next=/account"}
+                  title={`GIVIT Member: ${MEMBERSHIP_PRICE_LABEL}/mo`}
+                  className="flex h-8 items-center gap-1 rounded-md border border-givit-ember/50 px-2.5 text-xs font-semibold text-givit-ember transition-colors hover:bg-givit-ember/10"
+                >
+                  <Crown className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Join</span>
+                </Link>
+              )
+            ) : null}
             {user ? <CreditBalanceBadge isDark={isDark} /> : null}
             <ThemeToggle />
             <HeaderProfileButton
@@ -79,7 +109,7 @@ export function SiteHeader() {
           {/* Garland strung along the seam above the nav row -- sits in the
               border strip, not over the nav labels' own text, which starts
               lower (inside the py-2 + button padding below). */}
-          <HolidayGarland className="pointer-events-none absolute inset-x-0 -top-[17px] opacity-90" />
+          {HOLIDAY && <HolidayGarland className="pointer-events-none absolute inset-x-0 -top-[17px] opacity-90" />}
           <div className="container relative flex items-center gap-1.5 overflow-x-auto py-2 scrollbar-none">
             {NAV_ITEMS.map((item) => {
               const [itemPath] = item.href.split("?");

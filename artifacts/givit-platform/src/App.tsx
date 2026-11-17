@@ -13,6 +13,9 @@ import { UrgentOccasionBanner } from "@/components/personalization/urgent-occasi
 import { MembershipTopBanner } from "@/components/personalization/membership-top-banner";
 import { AmbientScrollBackground } from "@/components/layout/ambient-scroll-background";
 import { SeasonalSnow } from "@/components/layout/seasonal-snow";
+import { isHolidaySeason } from "@/lib/season";
+
+const HOLIDAY = isHolidaySeason();
 
 import LandingPage from "@/pages/landing";
 import HomePage from "@/pages/home";
@@ -119,12 +122,28 @@ function Router() {
   return (
     <div className="flex min-h-screen flex-col">
       <AmbientScrollBackground />
-      <SeasonalSnow />
+      {HOLIDAY && <SeasonalSnow />}
       {isBetaTesting && <BetaTestingBanner />}
       <MembershipTopBanner />
       {!isLanding && <SiteHeader />}
       {!isLanding && <UrgentOccasionBanner />}
-      <main className="flex-1" style={{ opacity, transition: "opacity 150ms ease-in-out" }}>
+      {/* A length of ribbon drawn across the top of the window on every
+          navigation: the site's one page-transition flourish. Keyed on
+          the route so it replays, and it is 2px tall, so it reads as a
+          detail rather than a loading screen. */}
+      <div key={displayLocation} className="route-ribbon" aria-hidden="true" />
+      <main
+        className="flex-1"
+        style={{
+          opacity,
+          // The outgoing page softens and sinks a few pixels, the incoming
+          // one resolves upward into focus -- the same blur-in the
+          // sections use, so a navigation feels like part of the page.
+          transform: opacity === 1 ? "none" : "translateY(8px)",
+          filter: opacity === 1 ? "none" : "blur(6px)",
+          transition: "opacity 180ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1), filter 220ms ease",
+        }}
+      >
         <Switch location={displayLocation}>
           <Route path="/" component={LandingPage} />
           <Route path="/home" component={HomePage} />

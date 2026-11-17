@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { useLocation, Link } from "wouter";
-import { User, Heart, Settings, MapPin, CreditCard, Gift, ShoppingBag, Star, Edit2, PlusCircle, Trash2, Camera, Shuffle, Lock, Coins, Crown, Sparkles, Phone } from "lucide-react";
+import { User, Trash2, Camera, ArrowRight, Check, Plus, X } from "lucide-react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/layout/page-shell";
@@ -13,9 +13,10 @@ import { normalizePhoneE164 } from "@/lib/utils";
 import { addressValidationError } from "@/lib/validation/autogift";
 import { uploadFileToS3 } from "@/lib/upload";
 import { getCohort } from "@/lib/data/gifting-cohorts";
-import { GiftingQuizModal, CohortMark } from "@/components/personalization/gifting-quiz-modal";
-import { Reveal } from "@/components/ui/reveal";
-import { CREDIT_PACKS, CREDITS_CHANGED_EVENT, confirmCreditPurchase, getCreditStatus, startCreditCheckout, startMembershipCheckout, MEMBERSHIP_TIERS, MEMBERSHIP_ENABLED, type CreditPackId, type CreditStatus } from "@/lib/credits/credits";
+import { GiftingQuizModal, COHORT_ICONS } from "@/components/personalization/gifting-quiz-modal";
+import { AccountLayout, type AccountNavItem, type AccountQuickLink } from "@/components/account/account-layout";
+import { AccountSection, Field, eyebrowClass, focusRingClass, iconButtonClass, inputClass, primaryButtonClass, quietActionClass, secondaryButtonClass, textLinkClass } from "@/components/account/account-ui";
+import { CREDIT_PACKS, CREDITS_CHANGED_EVENT, confirmCreditPurchase, getCreditStatus, startCreditCheckout, startMembershipCheckout, syncMembership, isActiveMember, MEMBERSHIP_TIERS, MEMBERSHIP_ENABLED, MEMBERSHIP_PERKS, MEMBERSHIP_PRICE_LABEL, type CreditPackId, type CreditStatus } from "@/lib/credits/credits";
 
 async function authedFetch(path: string, init?: RequestInit) {
   const { data } = await createClient().auth.getSession();
@@ -70,6 +71,30 @@ const PaymentElementForm = forwardRef<PaymentFormHandle, PaymentElementFormProps
   );
 });
 
+// Section ids double as scroll targets. "credits" and "membership" are
+// linked from other pages (/account#credits, /account#membership) and from
+// the Stripe return handling below, so those two must not be renamed.
+const ACCOUNT_SECTIONS: AccountNavItem[] = [
+  { id: "profile", label: "Profile" },
+  { id: "credits", label: "Credits" },
+  ...(MEMBERSHIP_ENABLED ? [{ id: "membership", label: "Membership" }] : []),
+  { id: "orders", label: "Orders" },
+  { id: "wishlist", label: "Wishlist" },
+  { id: "addresses", label: "Addresses" },
+  { id: "payment", label: "Payment" },
+  { id: "notifications", label: "Notifications" },
+  { id: "security", label: "Security" },
+];
+
+const QUICK_LINKS: AccountQuickLink[] = [
+  { href: "/people", label: "People" },
+  { href: "/concierge", label: "AutoGift" },
+  { href: "/gift", label: "Your Gift AI" },
+  { href: "/submit-product", label: "Submit a product" },
+  { href: "/wishlist", label: "Wishlist" },
+  { href: "/secret-santa", label: "Secret Santa" },
+];
+
 export default function AccountPage() {
   const { user, profile, loading, refresh } = useAuth();
   const [, navigate] = useLocation();
@@ -86,6 +111,7 @@ export default function AccountPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [addressForm, setAddressForm] = useState({ label: "Home", line1: "", city: "", state: "", zip: "", country: "US" });
+  const [addingAddress, setAddingAddress] = useState(false);
   const [accountNotice, setAccountNotice] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +119,7 @@ export default function AccountPage() {
   const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
   const [buyingPack, setBuyingPack] = useState<CreditPackId | null>(null);
   const [startingMembership, setStartingMembership] = useState(false);
+  const membershipSyncedRef = useRef(false);
   const cohort = getCohort(profile?.gifting_cohort);
 
   // Password change state
@@ -145,7 +172,7 @@ export default function AccountPage() {
     e.target.value = ""; // allow re-selecting the same file later
     if (!file || !user) return;
     if (!file.type.startsWith("image/")) { setAccountNotice("Please choose an image file."); return; }
-    if (file.size > 5 * 1024 * 1024) { setAccountNotice("Image is too large -- please choose one under 5MB."); return; }
+    if (file.size > 5 * 1024 * 1024) { setAccountNotice("Image is too large. Please choose one under 5MB."); return; }
     setUploadingAvatar(true);
     setAccountNotice("");
     try {
@@ -251,8 +278,8 @@ export default function AccountPage() {
     load();
     window.addEventListener(CREDITS_CHANGED_EVENT, load);
     // Back from Stripe restores this page from bfcache with the pack
-    // button still stuck on "Opening checkout�".
-    const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) setBuyingPack(null); };
+    // button still stuck on "Opening checkout...".
+    const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) { setBuyingPack(null); setStartingMembership(false); } };
     window.addEventListener("pageshow", onPageShow);
 
     const params = new URLSearchParams(window.location.search);
@@ -261,9 +288,9 @@ export default function AccountPage() {
     if (purchase) {
       window.history.replaceState(null, "", `${window.location.pathname}#credits`);
       if (purchase === "cancelled") {
-        setAccountNotice("Checkout cancelled -- you weren't charged.");
+        setAccountNotice("Checkout cancelled. You weren't charged.");
       } else if (purchase === "success" && sessionId) {
-        setAccountNotice("Confirming your purchase�");
+        setAccountNotice("Confirming your purchase...");
         confirmCreditPurchase(sessionId).then((result) => {
           if (cancelled) return;
           if (result.ok) {
@@ -276,8 +303,48 @@ export default function AccountPage() {
         });
       }
     }
-    if (window.location.hash === "#credits") {
-      requestAnimationFrame(() => document.getElementById("credits")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+
+    // Membership: Stripe Checkout redirects back with ?membership=success.
+    // syncMembership() makes the server re-read the subscription from
+    // Stripe and apply it (status + this month's credits), so activation
+    // doesn't wait on -- or depend on -- the webhook. The subscription can
+    // lag the redirect by a moment, hence the retries. Outside of a
+    // redirect, one quiet sync per visit keeps a cancelled or lapsed
+    // membership from still showing as active here. Neither path checks
+    // `cancelled`: refresh() gives `user` a new identity, which re-runs
+    // this effect, and that must not abandon an activation in flight --
+    // the ref is what keeps the quiet sync to once per visit instead.
+    const membership = MEMBERSHIP_ENABLED ? params.get("membership") : null;
+    if (membership) {
+      membershipSyncedRef.current = true;
+      window.history.replaceState(null, "", `${window.location.pathname}#membership`);
+      if (membership === "cancelled") {
+        setAccountNotice("Membership checkout cancelled. You weren't charged.");
+      } else if (membership === "success") {
+        setAccountNotice("Activating your membership...");
+        void (async () => {
+          let result = await syncMembership();
+          for (let attempt = 0; attempt < 3 && !isActiveMember(result?.status); attempt++) {
+            await new Promise((resolve) => setTimeout(resolve, 2500));
+            result = await syncMembership();
+          }
+          if (isActiveMember(result?.status)) {
+            setAccountNotice(`Welcome, GIVIT Member! Your ${MEMBERSHIP_TIERS[0].monthlyCredits} credits for this month are in your balance.`);
+            refresh();
+          } else {
+            setAccountNotice("Your payment went through, but the membership isn't showing as active yet. Refresh this page in a minute. If it still isn't active, contact us and we'll sort it out.");
+          }
+        })();
+      }
+    } else if (MEMBERSHIP_ENABLED && !membershipSyncedRef.current) {
+      membershipSyncedRef.current = true;
+      void syncMembership().then((result) => { if (result) refresh(); });
+    }
+    if (window.location.hash === "#credits" || window.location.hash === "#membership") {
+      const targetId = window.location.hash.slice(1);
+      // The membership card only exists once this page has rendered past
+      // its loading state, so look it up a beat later rather than now.
+      window.setTimeout(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }), 400);
     }
     return () => {
       cancelled = true;
@@ -358,6 +425,7 @@ export default function AccountPage() {
     if (error) { setAccountNotice(error.message); return; }
     setAddresses(await getUserAddresses(user.id));
     setAddressForm({ label: "Home", line1: "", city: "", state: "", zip: "", country: "US" });
+    setAddingAddress(false);
     setAccountNotice("Address saved.");
   }
 
@@ -426,202 +494,195 @@ export default function AccountPage() {
   if (loading || dataLoading) return <PageShell><div className="flex min-h-[400px] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-givit-ember border-t-transparent" /></div></PageShell>;
   if (!user) return null;
 
-  return (
-    <PageShell className="max-w-4xl">
-      <Reveal variant="blur" className="mb-6 overflow-hidden rounded-2xl border border-givit-ember/20 bg-gradient-to-br from-givit-ember/15 to-givit-coral/10 p-6">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-          <div className="group/avatar relative h-16 w-16 shrink-0">
-            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-givit-ember/10">
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <User className="h-7 w-7 text-givit-ember" />
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              disabled={uploadingAvatar}
-              aria-label="Change profile photo"
-              className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 text-transparent transition group-hover/avatar:bg-black/40 group-hover/avatar:text-white disabled:cursor-wait"
-            >
-              {uploadingAvatar ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <Camera className="h-5 w-5" />
-              )}
-            </button>
-            <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarSelected} className="hidden" />
-          </div>
-          <div className="flex-1 py-1">
-            {editingProfile ? (
-              <form onSubmit={handleProfileSave} className="max-w-sm space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground">Full name</label>
-                  <input
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Your name"
-                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground">Phone (required)</label>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="(555) 123-4567"
-                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">Needed for text reminders and order updates.</p>
-                </div>
-                {profileError && <p className="text-xs text-destructive">{profileError}</p>}
-                <div className="flex gap-2 pt-1">
-                  <Button type="submit" disabled={savingProfile} size="sm" className="rounded-md bg-givit-ember text-white hover:bg-givit-ember-hover">
-                    {savingProfile ? "Saving..." : "Save"}
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => setEditingProfile(false)} className="rounded-md">Cancel</Button>
-                </div>
-              </form>
+  // "Best value" = whichever pack is actually cheapest per credit, computed
+  // from real prices rather than hardcoded. Same packs and same Stripe
+  // checkout either way; this only decides which row gets the tag.
+  const packRates = CREDIT_PACKS.map((p) => p.priceCents / p.credits);
+  const bestPackRate = Math.min(...packRates);
+  const worstPackRate = Math.max(...packRates);
+  const CohortIcon = cohort ? COHORT_ICONS[cohort.icon] : null;
+  const isMember = isActiveMember(profile?.membership_status);
+
+  const profileHeader = (
+    <header
+      id="profile"
+      tabIndex={-1}
+      aria-label="Profile"
+      className="scroll-mt-40 pb-8 outline-none lg:scroll-mt-28 lg:border-b lg:border-border/40 lg:pb-12"
+    >
+      <p className={eyebrowClass}>Account</p>
+      <div className="mt-5 flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
+        <div className="group/avatar relative h-24 w-24 shrink-0">
+          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-muted">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="space-y-2">
-                <h1 className="font-serif text-2xl font-bold leading-tight text-givit-ink">{profile?.full_name || "Your account"}</h1>
-                <p className="text-sm text-muted-foreground">{profile?.email}</p>
-                {/* Was only visible by opening Edit profile -- a saved phone
-                    number otherwise looked "missing" even when it was
-                    right there in the DB, which is exactly what it looked
-                    like when the profile fetch itself was broken too. */}
-                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5 text-givit-ember/70" />
-                  {profile?.phone ? (
-                    profile.phone
-                  ) : (
-                    <button type="button" onClick={() => setEditingProfile(true)} className="font-semibold text-givit-ember hover:underline">
-                      Add a phone number
-                    </button>
-                  )}
-                </p>
-                {profile?.role === "admin" && (
-                  <span className="inline-block rounded-full bg-givit-ember/10 px-2.5 py-0.5 text-xs font-semibold text-givit-ember">Admin</span>
-                )}
-                {cohort ? (
-                  <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-card/60 px-3 py-2">
-                    <CohortMark cohort={cohort} size="sm" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-givit-ink">{cohort.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{cohort.tagline}</p>
-                    </div>
-                    <button type="button" onClick={() => setShowQuiz(true)} className="ml-auto shrink-0 text-xs font-semibold text-givit-ember hover:underline">Retake</button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowQuiz(true)}
-                    className="flex w-fit items-center gap-1.5 rounded-full border border-givit-ember/30 bg-givit-ember/5 px-3 py-1.5 text-xs font-semibold text-givit-ember transition hover:bg-givit-ember/10"
-                  >
-                    Find your gifting personality →
-                  </button>
-                )}
-                <button
-                  onClick={() => setEditingProfile(true)}
-                  className="flex items-center gap-1 text-xs font-semibold text-givit-ember hover:underline"
-                >
-                  <Edit2 className="h-3 w-3" /> Edit profile
-                </button>
-              </div>
+              <User className="h-9 w-9 text-muted-foreground" strokeWidth={1.5} />
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={uploadingAvatar}
+            aria-label="Change profile photo"
+            className={`absolute inset-0 flex items-center justify-center rounded-2xl transition group-hover/avatar:bg-black/45 group-hover/avatar:text-white focus-visible:bg-black/45 focus-visible:text-white disabled:cursor-wait ${focusRingClass} ${uploadingAvatar ? "bg-black/45 text-white" : "bg-black/0 text-transparent"}`}
+          >
+            {uploadingAvatar ? (
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : (
+              <Camera className="h-5 w-5" />
+            )}
+          </button>
+          <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarSelected} className="hidden" />
         </div>
-      </Reveal>
+        <div className="min-w-0 flex-1">
+          {editingProfile ? (
+            <form onSubmit={handleProfileSave} className="max-w-sm space-y-4">
+              <Field label="Full name" htmlFor="account-full-name">
+                <input
+                  id="account-full-name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Your name"
+                  autoComplete="name"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Phone (required)" htmlFor="account-phone" hint="Needed for text reminders and order updates.">
+                <input
+                  id="account-phone"
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  autoComplete="tel"
+                  className={inputClass}
+                />
+              </Field>
+              {profileError && <p role="alert" className="text-sm text-destructive">{profileError}</p>}
+              <div className="flex gap-2 pt-1">
+                <Button type="submit" disabled={savingProfile} className={primaryButtonClass}>
+                  {savingProfile ? "Saving..." : "Save"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setEditingProfile(false)} className={secondaryButtonClass}>Cancel</Button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <h1 className="break-words text-3xl font-light tracking-tight text-givit-ink md:text-4xl">{profile?.full_name || "Your account"}</h1>
+              {/* Phone stays visible here, not only inside Edit profile: a
+                  saved number otherwise looked "missing" even when it was
+                  right there in the DB. */}
+              <p className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted-foreground">
+                <span className="min-w-0 break-all">{profile?.email}</span>
+                <span aria-hidden="true">·</span>
+                {profile?.phone ? (
+                  <span className="whitespace-nowrap">{profile.phone}</span>
+                ) : (
+                  <button type="button" onClick={() => setEditingProfile(true)} className={textLinkClass}>
+                    Add a phone number
+                  </button>
+                )}
+                {profile?.role === "admin" && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span className="font-mono text-xs font-bold uppercase tracking-widest text-givit-ember">Admin</span>
+                  </>
+                )}
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2.5">
+                {cohort && CohortIcon ? (
+                  <>
+                    <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-givit-ink" title={cohort.tagline}>
+                      <CohortIcon className="h-4 w-4 shrink-0 text-givit-ember" strokeWidth={1.75} />
+                      {cohort.name}
+                    </span>
+                    <button type="button" onClick={() => setShowQuiz(true)} className={quietActionClass}>Retake quiz</button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => setShowQuiz(true)} className={textLinkClass}>
+                    Find your gifting personality <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <button type="button" onClick={() => setEditingProfile(true)} className={quietActionClass}>Edit profile</button>
+                <button type="button" onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar} className={quietActionClass}>
+                  {uploadingAvatar ? "Uploading photo..." : "Change photo"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  );
 
-      {accountNotice && <div className="mb-4 rounded-xl bg-givit-ember/10 px-4 py-3 text-sm text-givit-ink">{accountNotice}</div>}
-
-      <div className="stagger-children grid gap-6 lg:grid-cols-2">
-        {/* Credits */}
-        <div id="credits" className="slide-up givit-panel scroll-mt-24 p-6 lg:col-span-2">
-          <div className="mb-4 flex items-center gap-2">
-            <Coins className="h-4 w-4 text-givit-ember" />
-            <h2 className="font-semibold text-givit-ink">Credits</h2>
-          </div>
+  return (
+    <PageShell className="max-w-6xl">
+      <AccountLayout sections={ACCOUNT_SECTIONS} links={QUICK_LINKS} header={profileHeader}>
+        {/* Credits: one of the two real surfaces on this page. */}
+        <AccountSection id="credits" title="Credits" description="Credits cover AutoGifts once your free ones for the year are used.">
           {!creditStatus ? (
             <p className="text-sm text-muted-foreground">Couldn't load your credit balance right now.</p>
           ) : (
-            <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-              <div className="space-y-2 text-sm">
-                {/* "X of Y" read as ambiguous (used vs. remaining) -- these
-                    spell out "left" explicitly and show the fraction as a
-                    single glanceable number instead of a sentence. */}
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-lg bg-muted/50 p-3 text-center">
-                    <Coins className="mx-auto h-4 w-4 text-givit-ember" />
-                    <p className="mt-1 text-xl font-bold text-givit-ink">{creditStatus.balance}</p>
-                    <p className="text-[10px] leading-tight text-muted-foreground">credits</p>
-                  </div>
-                  <div className="rounded-lg bg-muted/50 p-3 text-center">
-                    <Gift className="mx-auto h-4 w-4 text-givit-ember" />
-                    <p className="mt-1 text-xl font-bold text-givit-ink">{creditStatus.freeAutogiftRemaining}<span className="text-xs font-normal text-muted-foreground">/{creditStatus.freeAutogiftLimit}</span></p>
-                    <p className="text-[10px] leading-tight text-muted-foreground">free AutoGifts left</p>
-                  </div>
-                  <div className="rounded-lg bg-success/10 p-3 text-center">
-                    <Sparkles className="mx-auto h-4 w-4 text-success" />
-                    <p className="mt-1 text-xl font-bold text-success">Free</p>
-                    <p className="text-[10px] leading-tight text-muted-foreground">Gift AI, always</p>
-                  </div>
+            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card">
+              <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-end sm:justify-between sm:p-8">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Balance</p>
+                  <p className="mt-2 flex items-baseline gap-2.5">
+                    <span className="text-5xl font-light tracking-tight tabular-nums text-givit-ink md:text-6xl">{creditStatus.balance}</span>
+                    <span className="text-sm text-muted-foreground">credits</span>
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">Free AutoGifts are used first and reset every January. After that, credits cover each AutoGift.</p>
+                {/* "X of Y" alone read as ambiguous (used vs. remaining), so
+                    the label spells out "left" explicitly. */}
+                <dl className="grid gap-2 text-sm sm:text-right">
+                  <div className="flex items-baseline justify-between gap-6 sm:justify-end">
+                    <dt className="text-muted-foreground">Free AutoGifts left</dt>
+                    <dd className="tabular-nums text-givit-ink">{creditStatus.freeAutogiftRemaining} of {creditStatus.freeAutogiftLimit}</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-6 sm:justify-end">
+                    <dt className="text-muted-foreground">Gift AI</dt>
+                    <dd className="text-success">Always free</dd>
+                  </div>
+                </dl>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {/* "Best value" = whichever pack is actually cheapest per
-                    credit, computed from real prices rather than hardcoded
-                    -- a tiered pricing table (one plain option, one
-                    highlighted "better deal"), not a new membership
-                    product: same two packs and same Stripe checkout as
-                    before, this is presentation only. */}
+              <ul className="divide-y divide-border/40 border-t border-border/40">
                 {CREDIT_PACKS.map((pack) => {
                   const perCreditCents = pack.priceCents / pack.credits;
-                  const worstPerCreditCents = Math.max(...CREDIT_PACKS.map((p) => p.priceCents / p.credits));
-                  const isBestValue = CREDIT_PACKS.length > 1 && perCreditCents === Math.min(...CREDIT_PACKS.map((p) => p.priceCents / p.credits)) && perCreditCents < worstPerCreditCents;
-                  const savingsPct = isBestValue ? Math.round((1 - perCreditCents / worstPerCreditCents) * 100) : 0;
+                  const isBestValue = CREDIT_PACKS.length > 1 && perCreditCents === bestPackRate && perCreditCents < worstPackRate;
+                  const savingsPct = isBestValue ? Math.round((1 - perCreditCents / worstPackRate) * 100) : 0;
                   return (
-                    <div
-                      key={pack.id}
-                      className={`relative flex flex-col gap-2 rounded-xl p-4 transition ${
-                        isBestValue
-                          ? "border-2 border-givit-ember bg-givit-ember/5 shadow-md shadow-givit-ember/10"
-                          : "border border-border/40"
-                      }`}
-                    >
-                      {isBestValue && (
-                        <span className="animate-badge-pop absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-givit-ember px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
-                          Best value -- save {savingsPct}%
-                        </span>
-                      )}
-                      <div className="flex items-baseline justify-between gap-2 pt-1">
-                        <span className="flex items-center gap-1.5 font-semibold text-givit-ink">
-                          <Coins className={`h-3.5 w-3.5 ${isBestValue ? "animate-float text-givit-ember" : "text-muted-foreground"}`} />
+                    <li key={pack.id} className="flex flex-wrap items-center gap-x-6 gap-y-3 px-6 py-5 sm:px-8">
+                      <div className="min-w-0 flex-1 basis-40">
+                        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 font-medium text-givit-ink">
                           {pack.label}
-                        </span>
-                        <span className="text-sm font-medium text-foreground">${(pack.priceCents / 100).toFixed(2)}</span>
+                          {isBestValue && (
+                            <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-givit-ember">Best value, save {savingsPct}%</span>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-sm text-muted-foreground">{pack.credits} credits, ${(perCreditCents / 100).toFixed(2)} each</p>
                       </div>
-                      <p className="text-xs text-muted-foreground">{pack.credits} credits - ${(perCreditCents / 100).toFixed(2)} each</p>
+                      <span className="text-lg font-light tabular-nums text-givit-ink">${(pack.priceCents / 100).toFixed(2)}</span>
                       <Button
                         type="button"
-                        size="sm"
+                        variant={isBestValue ? "default" : "outline"}
                         disabled={buyingPack !== null}
                         onClick={() => void handleBuyPack(pack.id)}
-                        className={`mt-auto rounded-md ${isBestValue ? "bg-givit-ember text-white hover:bg-givit-ember-hover" : "bg-muted text-foreground hover:bg-muted/70"}`}
+                        className={isBestValue ? primaryButtonClass : secondaryButtonClass}
                       >
                         {buyingPack === pack.id ? "Opening checkout..." : `Buy ${pack.credits} credits`}
                       </Button>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
+              <p className="border-t border-border/40 px-6 py-4 text-xs leading-relaxed text-muted-foreground sm:px-8">
+                Free AutoGifts are used first and reset every January. After that, credits cover each AutoGift.
+              </p>
             </div>
           )}
-        </div>
+        </AccountSection>
 
         {/* Membership -- behind VITE_ENABLE_MEMBERSHIP until the founders
             land on real pricing (see MEMBERSHIP_TIERS in credits.ts and
@@ -629,126 +690,180 @@ export default function AccountPage() {
             monthly credit grant) is already live either way; this flag
             only controls whether anyone can SEE the button to buy one. */}
         {MEMBERSHIP_ENABLED && (
-          <div className="slide-up givit-panel p-6 lg:col-span-2">
-            <div className="mb-4 flex items-center gap-2">
-              <Crown className="h-4 w-4 text-givit-ember" />
-              <h2 className="font-semibold text-givit-ink">Membership</h2>
-            </div>
-            {creditStatus?.membershipStatus === "active" ? (
-              <p className="text-sm text-foreground">
-                You're a <span className="font-semibold text-givit-ember">GIVIT Member</span> -- your monthly bonus credits land automatically.
-              </p>
+          <AccountSection id="membership" title="Membership" description="A monthly plan that keeps your credit balance topped up.">
+            {isMember ? (
+              <div>
+                <p className="flex items-center gap-2.5 font-medium text-givit-ink">
+                  <span aria-hidden="true" className="h-2 w-2 rounded-full bg-success" />
+                  You're a GIVIT Member
+                </p>
+                <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
+                  {MEMBERSHIP_TIERS[0].monthlyCredits} credits land in your balance every month, automatically. To cancel or change your card, contact us and we'll take care of it.
+                </p>
+              </div>
             ) : (
-              <div className="flex flex-col gap-3 rounded-xl border-2 border-givit-ember bg-givit-ember/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="flex items-center gap-1.5 font-semibold text-givit-ink">
-                    <Crown className="h-3.5 w-3.5 animate-float text-givit-ember" /> {MEMBERSHIP_TIERS[0].label}
+              // The one gradient on this page.
+              <div className="rounded-2xl border border-givit-ember/30 bg-gradient-to-br from-givit-ember/10 via-card to-card p-6 sm:p-8">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                  <p className="text-2xl font-light tracking-tight text-givit-ink">{MEMBERSHIP_TIERS[0].label}</p>
+                  <p className="text-sm text-muted-foreground">
+                    <span className="text-2xl font-light tabular-nums text-givit-ink">{MEMBERSHIP_PRICE_LABEL}</span> / month
                   </p>
-                  <p className="text-xs text-muted-foreground">${(MEMBERSHIP_TIERS[0].priceCents / 100).toFixed(2)}/mo -- {MEMBERSHIP_TIERS[0].monthlyCredits} bonus credits every month, automatically.</p>
                 </div>
+                <ul className="mt-6 space-y-2.5">
+                  {MEMBERSHIP_PERKS.map((perk) => (
+                    <li key={perk} className="flex items-start gap-3 text-sm text-foreground">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-givit-ember" /> {perk}
+                    </li>
+                  ))}
+                </ul>
                 <Button
                   type="button"
-                  size="sm"
                   disabled={startingMembership}
                   onClick={() => void handleStartMembership()}
-                  className="shrink-0 rounded-md bg-givit-ember text-white hover:bg-givit-ember-hover"
+                  className={`mt-7 ${primaryButtonClass}`}
                 >
                   {startingMembership ? "Opening checkout..." : "Become a Member"}
                 </Button>
               </div>
             )}
-          </div>
+          </AccountSection>
         )}
 
-        {/* Orders */}
-        <div className="slide-up givit-panel p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <ShoppingBag className="h-4 w-4 text-givit-ember" />
-            <h2 className="font-semibold text-givit-ink">Orders</h2>
-          </div>
+        <AccountSection id="orders" title="Orders" description="Your most recent purchases and AutoGifts.">
           {orders.length === 0 ? (
             <p className="text-sm text-muted-foreground">No orders yet.</p>
           ) : (
-            <div className="space-y-2.5">
-              {orders.slice(0, 3).map((order: any) => (
-                <div key={order.id} className="rounded-lg bg-muted/50 p-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-foreground">${(order.total_cents / 100).toFixed(2)}</span>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      order.status === "delivered" ? "bg-success/10 text-success" :
-                      order.status === "shipped" ? "bg-blue-100 text-blue-700" :
-                      "bg-amber-100 text-amber-700"
-                    }`}>{order.status}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
-                </div>
-              ))}
-              <Link href="/orders" className="block pt-1 text-center text-sm font-semibold text-givit-ember hover:underline">
-                View all {orders.length} order{orders.length !== 1 ? "s" : ""} →
+            <>
+              <ul className="divide-y divide-border/40">
+                {orders.slice(0, 3).map((order: any) => (
+                  <li key={order.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 py-3.5 text-sm first:pt-0 sm:grid-cols-[minmax(0,1fr)_9rem_5rem]">
+                    <span className="text-foreground">{new Date(order.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+                    <span className="order-3 col-span-2 flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground sm:order-none sm:col-span-1">
+                      <span
+                        aria-hidden="true"
+                        className={`h-1.5 w-1.5 rounded-full ${order.status === "delivered" ? "bg-success" : order.status === "shipped" ? "bg-givit-teal" : "bg-givit-ember"}`}
+                      />
+                      {order.status}
+                    </span>
+                    <span className="text-right font-medium tabular-nums text-givit-ink">${(order.total_cents / 100).toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/orders" className={`mt-4 ${textLinkClass}`}>
+                View all {orders.length} order{orders.length !== 1 ? "s" : ""} <ArrowRight className="h-3.5 w-3.5" />
               </Link>
-            </div>
+            </>
           )}
-        </div>
+        </AccountSection>
 
-        {/* Wishlist */}
-        <div className="slide-up givit-panel p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <Heart className="h-4 w-4 text-givit-ember" />
-            <h2 className="font-semibold text-givit-ink">Wishlist</h2>
-          </div>
+        <AccountSection id="wishlist" title="Wishlist" description="Gifts you've saved for later.">
           {wishlist.length === 0 ? (
             <p className="text-sm text-muted-foreground">Your wishlist is empty.</p>
           ) : (
-            <div className="space-y-2.5">
-              {wishlist.slice(0, 3).map((item: any) => (
-                <div key={item.id} className="flex items-center gap-3 rounded-lg bg-muted/50 p-2.5">
-                  {item.product_image && (
-                    <img src={item.product_image} alt="" className="h-10 w-10 rounded object-cover" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{item.product_name}</p>
-                    {item.product_price_cents && (
-                      <p className="text-xs text-muted-foreground">${(item.product_price_cents / 100).toFixed(2)}</p>
+            <>
+              <ul className="divide-y divide-border/40">
+                {wishlist.slice(0, 3).map((item: any) => (
+                  <li key={item.id} className="flex items-center gap-4 py-3.5 first:pt-0">
+                    {item.product_image && (
+                      <img src={item.product_image} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
                     )}
-                  </div>
-                </div>
-              ))}
+                    <p className="min-w-0 flex-1 truncate text-sm text-foreground">{item.product_name}</p>
+                    {item.product_price_cents && (
+                      <p className="shrink-0 text-sm font-medium tabular-nums text-givit-ink">${(item.product_price_cents / 100).toFixed(2)}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
               {wishlist.length > 3 && (
-                <Link href="/wishlist" className="block pt-1 text-center text-sm font-semibold text-givit-ember hover:underline">
-                  View all {wishlist.length} items →
+                <Link href="/wishlist" className={`mt-4 ${textLinkClass}`}>
+                  View all {wishlist.length} items <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               )}
-            </div>
+            </>
           )}
-        </div>
+        </AccountSection>
 
-        {/* Saved Addresses */}
-        <div className="slide-up givit-panel p-6 lg:col-span-2">
-          <div className="mb-4 flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-givit-ember" />
-            <h2 className="font-semibold text-givit-ink">Saved Addresses</h2>
-          </div>
-          <form onSubmit={handleAddressSave} className="mb-4 grid gap-3 rounded-lg border border-border/40 p-4">
-            <div className="grid gap-3 sm:grid-cols-2"><input value={addressForm.label} onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })} placeholder="Label" className="h-10 rounded-md border border-border bg-background px-3 text-sm" /><input value={addressForm.line1} onChange={(e) => setAddressForm({ ...addressForm, line1: e.target.value })} placeholder="Street address" required className="h-10 rounded-md border border-border bg-background px-3 text-sm" /></div>
-            <div className="grid gap-3 sm:grid-cols-3"><input value={addressForm.city} onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} placeholder="City" required className="h-10 rounded-md border border-border bg-background px-3 text-sm" /><input value={addressForm.state} onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })} placeholder="State" required className="h-10 rounded-md border border-border bg-background px-3 text-sm" /><input value={addressForm.zip} onChange={(e) => setAddressForm({ ...addressForm, zip: e.target.value })} placeholder="ZIP" required className="h-10 rounded-md border border-border bg-background px-3 text-sm" /></div>
-            <Button type="submit" size="sm" className="w-fit rounded-md bg-givit-ember text-white hover:bg-givit-ember-hover">Add address</Button>
-          </form>
-          {addresses.length === 0 ? <p className="text-sm text-muted-foreground">No saved addresses.</p> : (
-            <div className="grid gap-2.5 sm:grid-cols-2">{addresses.map((addr: any) => (<div key={addr.id} className="rounded-lg bg-muted/50 p-3 text-sm"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-1.5"><span className="font-medium text-foreground">{addr.label}</span>{addr.is_default && <span className="rounded bg-givit-ember/10 px-1.5 py-0.5 text-xs text-givit-ember">Default</span>}</div><button type="button" onClick={() => void handleAddressDelete(addr.id)} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label="Delete address"><Trash2 className="h-3.5 w-3.5" /></button></div><p className="mt-1 text-xs text-muted-foreground">{addr.line1}, {addr.city}, {addr.state} {addr.zip}</p></div>))}</div>
-          )}
-        </div>
-
-        {/* Payment Methods */}
-        <div className="slide-up givit-panel p-6 lg:col-span-2">
-          <div className="mb-4 flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-givit-ember" />
-            <h2 className="font-semibold text-givit-ink">Payment Methods</h2>
-          </div>
-          {!addingPayment ? (
-            <Button type="button" size="sm" variant="outline" className="mb-4 rounded-md" onClick={startAddingPayment}>Add a card</Button>
+        <AccountSection id="addresses" title="Addresses" description="Where your gifts and orders can ship.">
+          {addresses.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No saved addresses.</p>
           ) : (
-            <div className="mb-4 space-y-3 rounded-lg border border-border/40 p-4">
-              <p className="text-xs text-muted-foreground">Card details are handled directly by Stripe — they never touch GIVIT's own servers.</p>
+            <ul className="divide-y divide-border/40">
+              {addresses.map((addr: any) => (
+                <li key={addr.id} className="flex items-center gap-4 py-3.5 first:pt-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="flex flex-wrap items-baseline gap-x-3 text-sm font-medium text-givit-ink">
+                      {addr.label}
+                      {addr.is_default && <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-givit-ember">Default</span>}
+                    </p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{addr.line1}, {addr.city}, {addr.state} {addr.zip}</p>
+                  </div>
+                  <button type="button" onClick={() => void handleAddressDelete(addr.id)} className={iconButtonClass} aria-label={`Delete address ${addr.label}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!addingAddress ? (
+            <Button type="button" variant="outline" className={`mt-5 ${secondaryButtonClass}`} onClick={() => { setAddingAddress(true); setAccountNotice(""); }}>
+              <Plus className="h-4 w-4" /> Add address
+            </Button>
+          ) : (
+            <form onSubmit={handleAddressSave} className="mt-5 grid gap-4 rounded-xl border border-border/60 p-5">
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                <Field label="Label" htmlFor="address-label">
+                  <input id="address-label" value={addressForm.label} onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })} placeholder="Home" className={inputClass} />
+                </Field>
+                <Field label="Street address" htmlFor="address-line1">
+                  <input id="address-line1" value={addressForm.line1} onChange={(e) => setAddressForm({ ...addressForm, line1: e.target.value })} required autoComplete="address-line1" className={inputClass} />
+                </Field>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                <Field label="City" htmlFor="address-city">
+                  <input id="address-city" value={addressForm.city} onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} required autoComplete="address-level2" className={inputClass} />
+                </Field>
+                <Field label="State" htmlFor="address-state">
+                  <input id="address-state" value={addressForm.state} onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })} required autoComplete="address-level1" className={inputClass} />
+                </Field>
+                <Field label="ZIP" htmlFor="address-zip">
+                  <input id="address-zip" value={addressForm.zip} onChange={(e) => setAddressForm({ ...addressForm, zip: e.target.value })} required autoComplete="postal-code" inputMode="numeric" className={inputClass} />
+                </Field>
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit" className={primaryButtonClass}>Save address</Button>
+                <Button type="button" variant="outline" className={secondaryButtonClass} onClick={() => setAddingAddress(false)}>Cancel</Button>
+              </div>
+            </form>
+          )}
+        </AccountSection>
+
+        <AccountSection id="payment" title="Payment" description="Cards used for checkout and AutoGift approvals.">
+          {paymentMethods.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No saved payment methods.</p>
+          ) : (
+            <ul className="divide-y divide-border/40">
+              {paymentMethods.map((pm: any) => (
+                <li key={pm.id} className="flex items-center gap-4 py-3.5 first:pt-0">
+                  <p className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 text-sm">
+                    <span className="font-medium capitalize text-givit-ink">{pm.card_brand}</span>
+                    <span className="tabular-nums text-muted-foreground">•••• {pm.card_last4}</span>
+                    {pm.is_default && <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-givit-ember">Default</span>}
+                  </p>
+                  <button type="button" onClick={() => void handlePaymentDelete(pm.id)} className={iconButtonClass} aria-label={`Delete payment method ending in ${pm.card_last4}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!addingPayment ? (
+            <Button type="button" variant="outline" className={`mt-5 ${secondaryButtonClass}`} onClick={startAddingPayment}>
+              <Plus className="h-4 w-4" /> Add a card
+            </Button>
+          ) : (
+            <div className="mt-5 space-y-4 rounded-xl border border-border/60 p-5">
+              <p className="text-xs leading-relaxed text-muted-foreground">Card details are handled directly by Stripe. They never touch GIVIT's own servers.</p>
               {paymentFetching ? (
                 <p className="text-sm text-muted-foreground">Loading payment form…</p>
               ) : paymentClientSecret ? (
@@ -771,142 +886,98 @@ export default function AccountPage() {
               ) : (
                 <p className="text-sm text-destructive">Couldn't load the payment form. Please try again.</p>
               )}
-              <div className="flex gap-2">
-                <Button type="button" size="sm" disabled={!paymentReady || savingPayment} onClick={handlePaymentSave} className="w-fit rounded-md bg-givit-ember text-white hover:bg-givit-ember-hover">
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" disabled={!paymentReady || savingPayment} onClick={handlePaymentSave} className={primaryButtonClass}>
                   {savingPayment ? "Saving…" : "Save payment method"}
                 </Button>
-                <Button type="button" size="sm" variant="outline" className="rounded-md" onClick={() => { setAddingPayment(false); setPaymentClientSecret(null); }}>Cancel</Button>
+                <Button type="button" variant="outline" className={secondaryButtonClass} onClick={() => { setAddingPayment(false); setPaymentClientSecret(null); }}>Cancel</Button>
               </div>
             </div>
           )}
-          {paymentMethods.length === 0 ? <p className="text-sm text-muted-foreground">No saved payment methods.</p> : (
-            <div className="grid gap-2.5 sm:grid-cols-2">{paymentMethods.map((pm: any) => (<div key={pm.id} className="flex items-center gap-2 rounded-lg bg-muted/50 p-3 text-sm"><CreditCard className="h-4 w-4 text-muted-foreground" /><span className="font-medium text-foreground">{pm.card_brand} •••• {pm.card_last4}</span>{pm.is_default && <span className="rounded bg-givit-ember/10 px-1.5 py-0.5 text-xs text-givit-ember">Default</span>}<button type="button" onClick={() => void handlePaymentDelete(pm.id)} className="ml-auto rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label="Delete payment method"><Trash2 className="h-3.5 w-3.5" /></button></div>))}</div>
-          )}
-        </div>
+        </AccountSection>
 
-        {user && (
-          <div className="slide-up lg:col-span-2">
-            <NotificationSettingsCard
-              userId={user.id}
-              defaultLeadDays={profile?.default_reminder_lead_days ?? 35}
-              phone={profile?.phone}
-              smsOptIn={profile?.sms_opt_in}
-              onSmsOptInChange={refresh}
-              digestOptIn={profile?.email_digest_opt_in}
-              onDigestOptInChange={refresh}
-            />
-          </div>
-        )}
+        {/* NotificationSettingsCard brings its own surface and heading, so
+            this row has no title column of its own to repeat it. */}
+        <section id="notifications" tabIndex={-1} aria-label="Notifications" className="scroll-mt-40 border-t border-border/40 py-10 outline-none lg:scroll-mt-28 lg:py-12">
+          <NotificationSettingsCard
+            userId={user.id}
+            defaultLeadDays={profile?.default_reminder_lead_days ?? 35}
+            phone={profile?.phone}
+            smsOptIn={profile?.sms_opt_in}
+            onSmsOptInChange={refresh}
+            digestOptIn={profile?.email_digest_opt_in}
+            onDigestOptInChange={refresh}
+          />
+        </section>
 
-        {/* Change Password */}
-        <div className="slide-up givit-panel p-6 lg:col-span-2">
-          <div className="mb-4 flex items-center gap-2">
-            <Lock className="h-4 w-4 text-givit-ember" />
-            <h2 className="font-semibold text-givit-ink">Password</h2>
-          </div>
-          <form onSubmit={handleChangePassword} className="max-w-sm space-y-3">
-            {passwordError && <p className="text-xs text-destructive">{passwordError}</p>}
-            {passwordSuccess && <p className="text-xs text-success">Password updated.</p>}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground">Current password</label>
+        <AccountSection id="security" title="Security" description="Change the password you sign in with.">
+          <form onSubmit={handleChangePassword} className="max-w-sm space-y-4">
+            <Field label="Current password" htmlFor="account-current-password">
               <input
+                id="account-current-password"
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 required
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                autoComplete="current-password"
+                className={inputClass}
               />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground">New password</label>
+            </Field>
+            <Field label="New password" htmlFor="account-new-password" hint="At least 8 characters.">
               <input
+                id="account-new-password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 minLength={8}
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                autoComplete="new-password"
+                className={inputClass}
               />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground">Confirm new password</label>
+            </Field>
+            <Field label="Confirm new password" htmlFor="account-confirm-password">
               <input
+                id="account-confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={8}
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                autoComplete="new-password"
+                className={inputClass}
               />
-            </div>
-            <Button type="submit" disabled={changingPassword} size="sm" className="rounded-md bg-givit-ember text-white hover:bg-givit-ember-hover">
+            </Field>
+            {passwordError && <p role="alert" className="text-sm text-destructive">{passwordError}</p>}
+            {passwordSuccess && <p role="status" className="text-sm text-success">Password updated.</p>}
+            <Button type="submit" disabled={changingPassword} className={primaryButtonClass}>
               {changingPassword ? "Updating…" : "Update password"}
             </Button>
           </form>
-        </div>
-      </div>
+        </AccountSection>
+      </AccountLayout>
 
-      {/* Quick Links -- ramps up gradually (2 -> 3 -> 6 columns) instead of
-          jumping straight to equal columns at the "sm" (640px) breakpoint,
-          which crammed each card into ~110px and wrapped labels unevenly.
-          6 items divides evenly at every one of those column counts, so
-          unlike the 5-item version this doesn't need an odd-card-out span. */}
-      <div className="stagger-children mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Link href="/people" className="slide-up givit-panel flex min-w-0 items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:border-givit-ember/30">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-givit-ember/10">
-            <User className="h-5 w-5 text-givit-ember" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-givit-ink">People</p>
-            <p className="text-xs text-muted-foreground">Manage saved people</p>
-          </div>
-        </Link>
-        <Link href="/concierge" className="slide-up givit-panel flex min-w-0 items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:border-givit-ember/30">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-givit-ember/10">
-            <Settings className="h-5 w-5 text-givit-ember" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-givit-ink">AutoGift</p>
-            <p className="text-xs text-muted-foreground">Manage gift automation</p>
-          </div>
-        </Link>
-        <Link href="/gift" className="slide-up givit-panel flex min-w-0 items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:border-givit-ember/30">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-givit-ember/10">
-            <Gift className="h-5 w-5 text-givit-ember" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-givit-ink">Your Gift AI</p>
-            <p className="text-xs text-muted-foreground">Find gifts with AI</p>
-          </div>
-        </Link>
-        <Link href="/submit-product" className="slide-up givit-panel flex min-w-0 items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:border-givit-ember/30">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-givit-ember/10">
-            <PlusCircle className="h-5 w-5 text-givit-ember" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-givit-ink">Submit product</p>
-            <p className="text-xs text-muted-foreground">Add a gift for admin approval</p>
-          </div>
-        </Link>
-        <Link href="/wishlist" className="slide-up givit-panel flex min-w-0 items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:border-givit-ember/30">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-givit-ember/10">
-            <Star className="h-5 w-5 text-givit-ember" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-givit-ink">Wishlist</p>
-            <p className="text-xs text-muted-foreground">Products you've saved</p>
-          </div>
-        </Link>
-        <Link href="/secret-santa" className="slide-up givit-panel flex min-w-0 items-center gap-3 p-4 transition hover:-translate-y-0.5 hover:border-givit-ember/30">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-givit-ember/10">
-            <Shuffle className="h-5 w-5 text-givit-ember" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-givit-ink">Secret Santa</p>
-            <p className="text-xs text-muted-foreground">Group gift exchanges</p>
-          </div>
-        </Link>
-      </div>
+      {/* Pinned to the viewport rather than sitting at the top of the page:
+          most of the actions that set a notice (deleting a card, saving an
+          address) happen far below the fold on this layout. Leaves room on
+          the right for the feedback button on small screens. */}
+      {accountNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 left-4 right-20 z-40 flex items-start gap-3 rounded-xl bg-foreground px-4 py-3 text-sm text-background shadow-lg sm:right-auto sm:max-w-sm"
+        >
+          <p className="min-w-0 flex-1 leading-relaxed">{accountNotice}</p>
+          <button
+            type="button"
+            onClick={() => setAccountNotice("")}
+            aria-label="Dismiss"
+            className="-mr-1 shrink-0 rounded-md p-1 opacity-70 outline-none transition hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-current"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {showQuiz && <GiftingQuizModal onClose={() => setShowQuiz(false)} onComplete={saveCohort} />}
     </PageShell>
   );

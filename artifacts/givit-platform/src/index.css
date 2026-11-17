@@ -435,3 +435,74 @@
 }
 .animate-badge-pop { animation: badge-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
 
+
+/* Used by the header nav row and the trending rail: still scrollable
+   (wheel, swipe, drag), just without a visible scrollbar. The class was
+   already referenced in markup but never defined. */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Trending rail: soft fades at both edges so items slide in and out
+   rather than being cut off by the container. */
+.trending-scroller {
+  mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+
+/* Garland fairy lights: two interleaved sets that trade brightness, so
+   the string twinkles instead of blinking in unison. */
+@keyframes garland-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.garland-lights-a { animation: garland-twinkle 2.6s ease-in-out infinite; }
+.garland-lights-b { animation: garland-twinkle 2.6s ease-in-out -1.3s infinite; }
+
+/* Scroll progress rail (landing page): the active section's dot. */
+@keyframes rail-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(255 90 61 / 0.55); }
+  50% { box-shadow: 0 0 0 6px rgb(255 90 61 / 0); }
+}
+.rail-dot-active { animation: rail-dot-pulse 2.2s ease-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .garland-lights-a, .garland-lights-b, .rail-dot-active { animation: none; }
+}
+
+/* Page transition: a ribbon drawn across the top edge on each navigation. */
+@keyframes route-ribbon {
+  0% { transform: scaleX(0); opacity: 1; }
+  70% { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+.route-ribbon {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 2px;
+  z-index: 80;
+  pointer-events: none;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--givit-ember), var(--givit-coral));
+  animation: route-ribbon 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* An eyebrow that is still "thinking": three dots typed after the word,
+   one at a time, on a loop. */
+@keyframes eyebrow-dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75%, 100% { content: "..."; }
+}
+.eyebrow-dots::after {
+  content: "...";
+  display: inline-block;
+  width: 1.6em;
+  text-align: left;
+  animation: eyebrow-dots 2.4s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-ribbon { animation: none; opacity: 0; }
+  .eyebrow-dots::after { animation: none; }
+}

@@ -1,395 +1,666 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Brain, UserRound } from "lucide-react";
+import { Minus, Pause, Play, Plus, RotateCcw, UserRound } from "lucide-react";
 
+import { PersonPortrait } from "@/components/personalization/person-portrait";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { useAuth } from "@/lib/auth/use-auth";
+import { RECIPIENT_PHOTOS_CHANGED_EVENT, recipientPhotoUrl } from "@/lib/recipient-photos";
 import { getGiftRecipients } from "@/lib/supabase/db";
 import { initials } from "@/lib/utils";
-import { CountUp } from "@/components/ui/count-up";
 
-type GraphPerson = { id: string; name: string; interests: string[] };
+type GraphPerson = { id: string; name: string; relationship: string; interests: string[]; photoUrl: string | null };
+type Vec3 = { x: number; y: number; z: number };
 
-const WIDTH = 760;
-// Interest satellites sit an extra INTEREST_RADIUS beyond each person node,
-// so the farthest possible point from CENTER is PERSON_RADIUS + INTEREST_RADIUS.
-// HEIGHT/CENTER.y must clear that worst case (a node landing straight down,
-// which happens for 2, 4, or 6 people given the -90°-start layout below) or
-// its label silently renders past the viewBox edge and gets clipped.
-const HEIGHT = 560;
-const CENTER = { x: WIDTH / 2, y: 260 };
-const PERSON_RADIUS = 130;
-const INTEREST_RADIUS = 95;
-const MAX_PEOPLE = 6;
-const MAX_INTERESTS_SHOWN = 4;
+const MAX_PEOPLE = 12;
 
-function polar(cx: number, cy: number, radius: number, angleRad: number) {
-  return { x: cx + radius * Math.cos(angleRad), y: cy + radius * Math.sin(angleRad) };
-}
-
-// A gently curved connector between two points instead of a straight line --
-// real neural-net / graph visualizations almost never use dead-straight
-// spokes, and the curve is what an <animateMotion> dot can actually glide
-// along smoothly.
-function curvePath(x1: number, y1: number, x2: number, y2: number, bow = 0.18) {
-  const mx = (x1 + x2) / 2;
-  const my = (y1 + y2) / 2;
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const cx = mx - dy * bow;
-  const cy = my + dx * bow;
-  return `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
-}
-
-function truncate(text: string, max: number) {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
-}
-
-// One right-hemisphere perimeter, front-to-back: a real notch between the
-// frontal lobes, a temporal-lobe bulge, a waist at the sylvian fissure, a
-// parietal bulge, and an occipital taper -- normalized to roughly [-1, 1]
-// before scaling. The left hemisphere below is this exact array mirrored
-// (x negated), not hand-drawn separately, so the shape is guaranteed
-// bilaterally symmetric -- that symmetry is what actually reads as "brain"
-// instead of a randomly lumpy oval.
-const BRAIN_HALF: [number, number][] = [
-  [0, -1.02],
-  [0.22, -0.98],
-  [0.42, -0.74],
-  [0.4, -0.5],
-  [0.62, -0.28],
-  [0.58, 0.02],
-  [0.48, 0.2],
-  [0.64, 0.44],
-  [0.56, 0.7],
-  [0.32, 0.9],
-  [0.14, 1.0],
-  [0, 1.02],
+// Shown to signed-out visitors so the model isn't a blank space: clearly
+// labelled as an example, with made-up people, and nothing is saved.
+const EXAMPLE_PEOPLE: GraphPerson[] = [
+  { id: "example-1", name: "Maya", relationship: "Sister", interests: ["ceramics", "trail running", "oat lattes"], photoUrl: null },
+  { id: "example-2", name: "Dad", relationship: "Father", interests: ["fly fishing", "jazz records"], photoUrl: null },
+  { id: "example-3", name: "Priya", relationship: "Best friend", interests: ["film cameras", "houseplants", "ramen", "poetry"], photoUrl: null },
+  { id: "example-4", name: "Jordan", relationship: "Partner", interests: ["cycling", "espresso", "sci-fi"], photoUrl: null },
+  { id: "example-5", name: "Nana", relationship: "Grandmother", interests: ["gardening", "crosswords"], photoUrl: null },
+  { id: "example-6", name: "Sam", relationship: "Coworker", interests: ["board games"], photoUrl: null },
 ];
+const BG = "#0b0b0e";
+const EMBER: [number, number, number] = [255, 90, 61];
+const CORAL: [number, number, number] = [255, 47, 135];
+const FOCAL = 3.4;
 
-function smoothClosedPath(points: [number, number][]): string {
-  const n = points.length;
-  let d = `M ${(points[0][0] + points[n - 1][0]) / 2} ${(points[0][1] + points[n - 1][1]) / 2}`;
+// Deterministic RNG so the brain is the same brain on every render.
+function mulberry32(seed: number) {
+  let a = seed;
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// How "ridged" the cortex is in a given direction: 0 in the bottom of a
+// groove (sulcus), 1 on the crown of a fold (gyrus). Three warped sine
+// fields summed -- cheap, and winding enough to read as folds, not stripes.
+function foldAt(d: Vec3) {
+  const n =
+    Math.sin(8 * d.x + 3 * Math.sin(6 * d.y)) +
+    Math.sin(9 * d.y + 3 * Math.sin(7 * d.z)) +
+    Math.sin(8 * d.z + 3 * Math.sin(6 * d.x));
+  return Math.min(1, (Math.abs(n) / 3) * 2.2);
+}
+
+// Maps a direction on the unit sphere to a point on the cerebrum's
+// surface. x = left/right, y = up, z = front (+) to back (-).
+function cortexPoint(d: Vec3): Vec3 {
+  const fold = foldAt(d);
+  const r = 1 + 0.04 * (fold - 0.45);
+  const side = d.x >= 0 ? 1 : -1;
+  // Two hemispheres: slightly narrower at the frontal pole, a temporal
+  // bulge low on each side, and a real gap down the middle.
+  let x = d.x * 0.8 * r;
+  x *= 1 - 0.12 * Math.max(0, d.z);
+  x *= 1 + 0.1 * Math.exp(-Math.pow((d.y + 0.25) / 0.3, 2)) * (1 - Math.abs(d.z) * 0.5);
+  x += side * 0.035;
+  let y = d.y * 0.7 * r;
+  // The longitudinal fissure: the top surface dips toward the midline.
+  y -= 0.11 * Math.exp(-Math.pow(d.x / 0.1, 2)) * Math.max(0, d.y);
+  // The underside is flattened, not a full sphere.
+  if (y < -0.3) y = -0.3 + (y + 0.3) * 0.45;
+  // Temporal lobes: the underside drops lower toward the front on each
+  // side, which is what gives a brain its profile -- without it the
+  // silhouette from the side is just a dome.
+  if (d.y < 0) y -= 0.2 * Math.exp(-Math.pow((d.z - 0.18) / 0.36, 2)) * Math.min(1, Math.abs(d.x) * 2.4) * -d.y;
+  // The back of the head (occipital pole) sits a little lower than the front.
+  y -= 0.05 * Math.max(0, -d.z);
+  const z = d.z * 1.05 * r;
+  return { x, y, z };
+}
+
+type BrainPoint = Vec3 & { bright: number; tone: number; size: number };
+
+function buildBrain(): BrainPoint[] {
+  const rand = mulberry32(20261116);
+  const points: BrainPoint[] = [];
+  // Cerebrum: an even (Fibonacci) spread of directions, jittered a little.
+  const n = 4200;
+  const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < n; i++) {
-    const [x, y] = points[i];
-    const [nx, ny] = points[(i + 1) % n];
-    d += ` Q ${x} ${y} ${(x + nx) / 2} ${(y + ny) / 2}`;
+    const yy = 1 - (i / (n - 1)) * 2;
+    const rad = Math.sqrt(1 - yy * yy);
+    const theta = golden * i + (rand() - 0.5) * 0.3;
+    const d = { x: Math.cos(theta) * rad, y: yy, z: Math.sin(theta) * rad };
+    const p = cortexPoint(d);
+    const fold = foldAt(d);
+    // Squared, so grooves fall away to near-black and the folds stand out.
+    points.push({ ...p, bright: 0.06 + 0.94 * fold * fold, tone: (d.y + 1) / 2, size: 1 + fold * 1.1 });
   }
-  return `${d} Z`;
+  // Cerebellum: a smaller, finely striated lobe tucked under the back.
+  for (let i = 0; i < 520; i++) {
+    const u = rand() * 2 - 1;
+    const th = rand() * Math.PI * 2;
+    const rad = Math.sqrt(1 - u * u);
+    const y = -0.5 + u * 0.24;
+    points.push({
+      x: Math.cos(th) * rad * 0.44,
+      y,
+      z: -0.6 + Math.sin(th) * rad * 0.3,
+      bright: 0.25 + 0.6 * Math.abs(Math.sin(y * 46)),
+      tone: 0.15,
+      size: 1,
+    });
+  }
+  // Brain stem: a short taper running down and slightly forward.
+  for (let i = 0; i < 70; i++) {
+    const t = rand();
+    const th = rand() * Math.PI * 2;
+    const w = 0.11 - t * 0.05;
+    points.push({ x: Math.cos(th) * w, y: -0.5 - t * 0.5, z: -0.38 + t * 0.1 + Math.sin(th) * w, bright: 0.4, tone: 0.05, size: 0.9 });
+  }
+  return points;
 }
 
-function brainCasePath(cx: number, cy: number, rx: number, ry: number): string {
-  // BRAIN_HALF's first and last points sit exactly on the centerline
-  // (front-center and back-center) -- mirroring the *whole* array duplicated
-  // both of them at the seams where the two hemispheres meet, which made
-  // smoothClosedPath's midpoint technique collapse to a zero-length segment
-  // right at the front and back tips and kick out a stray little cusp
-  // (the "weird out of place lines"). Mirroring only the interior points
-  // (slice(1, -1)) means each of the 22 points around the loop is unique.
-  const interiorLeft = BRAIN_HALF.slice(1, -1).reverse().map(([x, y]) => [-x, y] as [number, number]);
-  const full = [...BRAIN_HALF, ...interiorLeft].map(([x, y]) => [cx + x * rx, cy + y * ry] as [number, number]);
-  return smoothClosedPath(full);
+function fibonacciDirection(i: number, n: number): Vec3 {
+  // Kept away from the very top and bottom so nobody hides behind the
+  // stem or sits dead centre above the fissure.
+  const t = n === 1 ? 0.5 : i / (n - 1);
+  const y = 0.62 - t * 1.1;
+  const rad = Math.sqrt(Math.max(0, 1 - y * y));
+  const theta = Math.PI * (3 - Math.sqrt(5)) * i + 0.6;
+  return { x: Math.cos(theta) * rad, y, z: Math.sin(theta) * rad };
 }
 
-// Muted, deliberately desaturated -- meant for the working node network
-// itself, not a dozen glowing, constantly-pulsing elements sitting on
-// screen the whole time a page is open. The one glow inside the network
-// is scoped to a single node at a time for exactly that reason. The outer
-// brain case is a different visual role (a container, not a working node)
-// and uses the real brand ember/coral -- see BRAIN_EMBER/BRAIN_CORAL below.
-const NODE_COLOR = "#c98a5c"; // muted rust -- person nodes
-const SATELLITE_COLOR = "#b06e82"; // muted dusty rose -- interest satellites
-const GRAPH_BG = "#16151a";
-const SCAN_INTERVAL_MS = 3200;
-const BRAIN_EMBER = "#ff5a3d"; // real brand ember -- matches --givit-ember
-const BRAIN_CORAL = "#ff2f87"; // real brand coral -- matches --givit-coral
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
 
 /**
- * A node-and-edge map of what GIVIT remembers: you at the center, each
- * saved person one ring out, their known interests as satellite nodes
- * branching further out. Mostly still -- a calm, legible diagram reads
- * more confident than a screensaver -- except for one deliberate signal:
- * a single node "under scan" at a time, glowing and read out in the data
- * panel, the way an instrument highlights the one channel it's currently
- * reporting rather than lighting up all of them at once.
+ * The memory graph as an object you can pick up: a brain built from a
+ * couple of thousand points (real hemispheres, fissure, folds, cerebellum
+ * and stem), with every saved person held around it on a thread to the
+ * patch of cortex that "remembers" them.
+ *
+ * Drag to turn it, use the controls to zoom or pull the people further
+ * out, click anyone (or pick them from the list underneath) to bring them
+ * to the front and read what GIVIT knows. Left alone it turns slowly.
+ *
+ * Canvas 2D with a hand-rolled perspective projection: no 3D library.
  */
 export function RelationshipGraph() {
   const { user } = useAuth();
   const [people, setPeople] = useState<GraphPerson[] | null>(null);
-  const [scanIdx, setScanIdx] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [spinning, setSpinning] = useState(true);
+  const [spread, setSpread] = useState(1);
+  const [zoom, setZoom] = useState(1);
+  const [photoVersion, setPhotoVersion] = useState(0);
+
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Everything the render loop reads lives in refs, so changing a control
+  // never tears the loop down and restarts it.
+  const view = useRef({ yaw: 1.15, pitch: 0.16, vyaw: 0, vpitch: 0, targetYaw: null as number | null, targetPitch: null as number | null });
+  const live = useRef({ spinning: true, spread: 1, zoom: 1, selectedId: null as string | null, hoverId: null as string | null });
+  const hits = useRef<{ id: string; x: number; y: number; r: number }[]>([]);
+  const images = useRef(new Map<string, HTMLImageElement>());
+
+  live.current.spinning = spinning;
+  live.current.spread = spread;
+  live.current.zoom = zoom;
+  live.current.selectedId = selectedId;
+
+  const brain = useMemo(buildBrain, []);
 
   useEffect(() => {
-    if (!user) { setPeople(null); return; }
+    if (!user) { setPeople(EXAMPLE_PEOPLE); return; }
     let mounted = true;
     getGiftRecipients(user.id).then((rows: any[]) => {
       if (!mounted) return;
-      setPeople(rows.slice(0, MAX_PEOPLE).map((r) => ({ id: r.id, name: r.name, interests: r.interests ?? [] })));
-    });
+      setPeople(rows.slice(0, MAX_PEOPLE).map((r) => ({
+        id: r.id,
+        name: r.name,
+        relationship: r.relationship || "",
+        interests: r.interests ?? [],
+        photoUrl: r.photo_url ?? null,
+      })));
+    }).catch(() => { if (mounted) setPeople([]); });
     return () => { mounted = false; };
   }, [user]);
 
   useEffect(() => {
-    if (!people || people.length === 0) return;
-    const id = setInterval(() => setScanIdx((i) => (i + 1) % people.length), SCAN_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [people]);
+    const onChange = () => setPhotoVersion((v) => v + 1);
+    window.addEventListener(RECIPIENT_PHOTOS_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(RECIPIENT_PHOTOS_CHANGED_EVENT, onChange);
+  }, []);
 
-  if (!user || !people) return null;
+  // Photos are drawn into the canvas, so each needs a loaded <img>.
+  useEffect(() => {
+    if (!people) return;
+    for (const person of people) {
+      const url = recipientPhotoUrl(user?.id, { id: person.id }) ?? person.photoUrl;
+      const existing = images.current.get(person.id);
+      if (!url) { images.current.delete(person.id); continue; }
+      if (existing?.src === url) continue;
+      const img = new Image();
+      img.decoding = "async";
+      img.src = url;
+      images.current.set(person.id, img);
+    }
+  }, [people, user, photoVersion]);
+
+  const nodes = useMemo(
+    () => (people ?? []).map((person, i, all) => {
+      const dir = fibonacciDirection(i, all.length);
+      return { person, dir, anchor: cortexPoint(dir) };
+    }),
+    [people],
+  );
+
+  function focusPerson(id: string | null) {
+    setSelectedId(id);
+    const node = nodes.find((n) => n.person.id === id);
+    if (!node) { view.current.targetYaw = null; view.current.targetPitch = null; return; }
+    // Turn the model so this person faces the viewer.
+    const horizontal = Math.hypot(node.dir.x, node.dir.z);
+    view.current.targetYaw = Math.atan2(-node.dir.x, node.dir.z);
+    view.current.targetPitch = Math.atan2(node.dir.y, horizontal) * 0.7;
+  }
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !wrap || !ctx || nodes.length === 0) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let width = 0;
+    let height = 0;
+    function resize() {
+      width = wrap!.clientWidth;
+      height = Math.round(Math.min(620, Math.max(380, width * 0.6)));
+      canvas!.style.height = `${height}px`;
+      canvas!.width = Math.round(width * dpr);
+      canvas!.height = Math.round(height * dpr);
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(wrap);
+
+    let visible = true;
+    const io = new IntersectionObserver(([entry]) => { visible = Boolean(entry?.isIntersecting); });
+    io.observe(canvas);
+
+    // --- pointer: drag to rotate, tap to select ---------------------
+    let dragging = false;
+    let moved = 0;
+    let lastX = 0;
+    let lastY = 0;
+    function localPoint(e: PointerEvent) {
+      const rect = canvas!.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+    function hitTest(x: number, y: number) {
+      // Front-most first: hits are stored back to front.
+      for (let i = hits.current.length - 1; i >= 0; i--) {
+        const h = hits.current[i]!;
+        if (Math.abs(x - h.x) <= h.r && Math.abs(y - h.y) <= h.r) return h.id;
+      }
+      return null;
+    }
+    function onDown(e: PointerEvent) {
+      dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY;
+      canvas!.setPointerCapture(e.pointerId);
+      view.current.targetYaw = null; view.current.targetPitch = null;
+    }
+    function onMove(e: PointerEvent) {
+      if (dragging) {
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        moved += Math.abs(dx) + Math.abs(dy);
+        view.current.vyaw = dx * 0.006;
+        view.current.vpitch = dy * 0.004;
+        view.current.yaw += view.current.vyaw;
+        view.current.pitch = Math.max(-0.9, Math.min(0.9, view.current.pitch + view.current.vpitch));
+      } else {
+        const p = localPoint(e);
+        const id = hitTest(p.x, p.y);
+        live.current.hoverId = id;
+        canvas!.style.cursor = id ? "pointer" : "grab";
+      }
+    }
+    function onUp(e: PointerEvent) {
+      if (!dragging) return;
+      dragging = false;
+      if (moved < 6) {
+        const p = localPoint(e);
+        const id = hitTest(p.x, p.y);
+        focusPersonRef.current(id);
+      }
+    }
+    function onLeave() { live.current.hoverId = null; }
+    canvas.addEventListener("pointerdown", onDown);
+    canvas.addEventListener("pointermove", onMove);
+    canvas.addEventListener("pointerup", onUp);
+    canvas.addEventListener("pointercancel", onUp);
+    canvas.addEventListener("pointerleave", onLeave);
+
+    function project(p: Vec3, cosY: number, sinY: number, cosP: number, sinP: number, cx: number, cy: number, R: number) {
+      const x1 = p.x * cosY + p.z * sinY;
+      const z1 = -p.x * sinY + p.z * cosY;
+      const y2 = p.y * cosP - z1 * sinP;
+      const z2 = p.y * sinP + z1 * cosP;
+      const k = FOCAL / (FOCAL - z2);
+      return { sx: cx + x1 * R * k, sy: cy - y2 * R * k, z: z2, k };
+    }
+
+    function draw(time: number) {
+      const v = view.current;
+      const state = live.current;
+
+      // Ease toward a focused person, otherwise coast and (optionally) idle-spin.
+      if (v.targetYaw != null && v.targetPitch != null) {
+        let diff = (v.targetYaw - v.yaw) % (Math.PI * 2);
+        if (diff > Math.PI) diff -= Math.PI * 2;
+        if (diff < -Math.PI) diff += Math.PI * 2;
+        v.yaw += diff * 0.07;
+        v.pitch += (v.targetPitch - v.pitch) * 0.07;
+      } else if (!dragging) {
+        v.yaw += v.vyaw;
+        v.pitch = Math.max(-0.9, Math.min(0.9, v.pitch + v.vpitch));
+        v.vyaw *= 0.94; v.vpitch *= 0.9;
+        if (state.spinning && !reduceMotion && !state.selectedId) v.yaw += 0.0022;
+      }
+
+      const cosY = Math.cos(v.yaw), sinY = Math.sin(v.yaw);
+      const cosP = Math.cos(v.pitch), sinP = Math.sin(v.pitch);
+      const cx = width / 2;
+      const cy = height / 2 + 6;
+      const R = Math.min(width * 0.3, height * 0.4) * state.zoom;
+
+      ctx!.clearRect(0, 0, width, height);
+
+      // Soft light behind the model.
+      const glow = ctx!.createRadialGradient(cx, cy, 0, cx, cy, R * 2.2);
+      glow.addColorStop(0, "rgba(255, 90, 61, 0.13)");
+      glow.addColorStop(0.5, "rgba(255, 47, 135, 0.05)");
+      glow.addColorStop(1, "rgba(255, 47, 135, 0)");
+      ctx!.fillStyle = glow;
+      ctx!.fillRect(0, 0, width, height);
+
+      // --- the brain ------------------------------------------------
+      ctx!.globalCompositeOperation = "lighter";
+      const pulse = reduceMotion ? 0 : time * 0.0006;
+      for (const p of brain) {
+        const q = project(p, cosY, sinY, cosP, sinP, cx, cy, R);
+        const depth = (q.z + 1.1) / 2.2; // 0 back .. 1 front
+        // A slow wave of activity crossing the cortex front to back.
+        const wave = 0.85 + 0.15 * Math.sin(p.z * 5 - pulse * 3 + p.x * 2);
+        const alpha = p.bright * (0.1 + 0.9 * depth * depth) * wave * 1.25;
+        const r = EMBER[0] + (CORAL[0] - EMBER[0]) * (1 - p.tone);
+        const g = EMBER[1] + (CORAL[1] - EMBER[1]) * (1 - p.tone) + 60 * p.bright * depth;
+        const b = EMBER[2] + (CORAL[2] - EMBER[2]) * (1 - p.tone);
+        const size = p.size * q.k * (0.7 + state.zoom * 0.5);
+        ctx!.fillStyle = `rgba(${r | 0}, ${Math.min(255, g) | 0}, ${b | 0}, ${Math.min(1, alpha)})`;
+        ctx!.fillRect(q.sx - size / 2, q.sy - size / 2, size, size);
+      }
+      ctx!.globalCompositeOperation = "source-over";
+
+      // --- people ---------------------------------------------------
+      const shell = 1.42 * state.spread;
+      const drawn = nodes.map((node) => {
+        const bob = reduceMotion ? 0 : Math.sin(time * 0.0009 + node.dir.x * 5) * 0.025;
+        const pos = { x: node.dir.x * shell, y: node.dir.y * shell * 0.82 + bob, z: node.dir.z * shell };
+        return {
+          node,
+          at: project(pos, cosY, sinY, cosP, sinP, cx, cy, R),
+          anchor: project(node.anchor, cosY, sinY, cosP, sinP, cx, cy, R),
+          pos,
+        };
+      }).sort((a, b) => a.at.z - b.at.z);
+
+      hits.current = [];
+      for (const d of drawn) {
+        const { person } = d.node;
+        const isSelected = person.id === state.selectedId;
+        const isHover = person.id === state.hoverId;
+        const front = (d.at.z + shell) / (shell * 2); // 0 back .. 1 front
+        const dim = state.selectedId && !isSelected ? 0.45 : 1;
+        const alpha = (0.35 + 0.65 * front) * dim;
+
+        // Thread from the cortex out to the person.
+        const mx = (d.at.sx + d.anchor.sx) / 2 + (d.at.sy - d.anchor.sy) * 0.12;
+        const my = (d.at.sy + d.anchor.sy) / 2 - (d.at.sx - d.anchor.sx) * 0.12;
+        ctx!.beginPath();
+        ctx!.moveTo(d.anchor.sx, d.anchor.sy);
+        ctx!.quadraticCurveTo(mx, my, d.at.sx, d.at.sy);
+        ctx!.strokeStyle = `rgba(255, 140, 110, ${(isSelected ? 0.9 : 0.28) * alpha})`;
+        ctx!.lineWidth = isSelected ? 1.4 : 0.8;
+        ctx!.stroke();
+
+        // A signal travelling along the thread of whoever is in focus.
+        if ((isSelected || isHover) && !reduceMotion) {
+          const t = (time * 0.0007) % 1;
+          const px = (1 - t) * (1 - t) * d.anchor.sx + 2 * (1 - t) * t * mx + t * t * d.at.sx;
+          const py = (1 - t) * (1 - t) * d.anchor.sy + 2 * (1 - t) * t * my + t * t * d.at.sy;
+          ctx!.beginPath();
+          ctx!.arc(px, py, 2.4, 0, Math.PI * 2);
+          ctx!.fillStyle = "rgba(255, 220, 200, 0.95)";
+          ctx!.fill();
+        }
+
+        // Interests: tiny marks around the person, with labels only for
+        // whoever is in focus so the model stays readable.
+        const half = (isSelected ? 30 : isHover ? 26 : 21) * d.at.k * (0.75 + state.zoom * 0.25);
+        const shown = person.interests.slice(0, 6);
+        shown.forEach((interest, i) => {
+          const angle = (i / Math.max(1, shown.length)) * Math.PI * 2 + (reduceMotion ? 0 : time * 0.00025) + d.node.dir.x * 3;
+          const orbit = half * (isSelected ? 2.6 : 1.75);
+          const ix = d.at.sx + Math.cos(angle) * orbit;
+          const iy = d.at.sy + Math.sin(angle) * orbit * 0.8;
+          ctx!.beginPath();
+          ctx!.arc(ix, iy, isSelected ? 2.6 : 1.6, 0, Math.PI * 2);
+          ctx!.fillStyle = `rgba(255, 47, 135, ${0.85 * alpha})`;
+          ctx!.fill();
+          if (isSelected) {
+            ctx!.beginPath();
+            ctx!.moveTo(d.at.sx, d.at.sy);
+            ctx!.lineTo(ix, iy);
+            ctx!.strokeStyle = "rgba(255, 47, 135, 0.25)";
+            ctx!.lineWidth = 0.7;
+            ctx!.stroke();
+            ctx!.font = "500 11px Inter, ui-sans-serif, system-ui, sans-serif";
+            ctx!.textAlign = Math.cos(angle) >= 0 ? "left" : "right";
+            ctx!.textBaseline = "middle";
+            ctx!.fillStyle = "rgba(255, 255, 255, 0.82)";
+            const label = interest.length > 18 ? `${interest.slice(0, 17)}…` : interest;
+            ctx!.fillText(label, ix + (Math.cos(angle) >= 0 ? 7 : -7), iy);
+          }
+        });
+
+        // The portrait itself: photo if there is one, monogram if not.
+        const x = d.at.sx - half;
+        const y = d.at.sy - half;
+        const corner = half * 0.42;
+        ctx!.save();
+        ctx!.globalAlpha = alpha;
+        if (isSelected || isHover) {
+          ctx!.shadowColor = "rgba(255, 90, 61, 0.8)";
+          ctx!.shadowBlur = 22;
+        }
+        roundedRect(ctx!, x, y, half * 2, half * 2, corner);
+        ctx!.fillStyle = "#17161b";
+        ctx!.fill();
+        ctx!.shadowBlur = 0;
+        ctx!.clip();
+        const img = images.current.get(person.id);
+        if (img && img.complete && img.naturalWidth > 0) {
+          const scale = Math.max((half * 2) / img.naturalWidth, (half * 2) / img.naturalHeight);
+          const w = img.naturalWidth * scale;
+          const h = img.naturalHeight * scale;
+          ctx!.drawImage(img, d.at.sx - w / 2, d.at.sy - h / 2, w, h);
+        } else {
+          ctx!.fillStyle = "rgba(255, 255, 255, 0.88)";
+          ctx!.font = `300 ${Math.round(half * 0.85)}px Inter, ui-sans-serif, system-ui, sans-serif`;
+          ctx!.textAlign = "center";
+          ctx!.textBaseline = "middle";
+          ctx!.fillText(initials(person.name), d.at.sx, d.at.sy + 1);
+          // Same corner ribbon as the monogram portraits elsewhere.
+          ctx!.translate(x + half * 1.62, y + half * 0.38);
+          ctx!.rotate(Math.PI / 4);
+          const band = ctx!.createLinearGradient(-half, 0, half, 0);
+          band.addColorStop(0, "rgb(255, 90, 61)");
+          band.addColorStop(1, "rgb(255, 47, 135)");
+          ctx!.fillStyle = band;
+          ctx!.fillRect(-half, -half * 0.09, half * 2, half * 0.18);
+        }
+        ctx!.restore();
+
+        ctx!.save();
+        ctx!.globalAlpha = alpha;
+        roundedRect(ctx!, x, y, half * 2, half * 2, corner);
+        ctx!.strokeStyle = isSelected ? "rgba(255, 90, 61, 1)" : "rgba(255, 255, 255, 0.22)";
+        ctx!.lineWidth = isSelected ? 1.8 : 1;
+        ctx!.stroke();
+        ctx!.font = `${isSelected ? 600 : 500} ${isSelected ? 13 : 11.5}px Inter, ui-sans-serif, system-ui, sans-serif`;
+        ctx!.textAlign = "center";
+        ctx!.textBaseline = "top";
+        ctx!.fillStyle = "rgba(255, 255, 255, 0.9)";
+        const shortName = person.name.length > 16 ? `${person.name.slice(0, 15)}…` : person.name;
+        ctx!.fillText(shortName, d.at.sx, d.at.sy + half + 7);
+        ctx!.restore();
+
+        hits.current.push({ id: person.id, x: d.at.sx, y: d.at.sy, r: Math.max(half, 18) });
+      }
+    }
+
+    let raf = 0;
+    function loop(time: number) {
+      if (visible) draw(time);
+      raf = requestAnimationFrame(loop);
+    }
+    raf = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      io.disconnect();
+      canvas.removeEventListener("pointerdown", onDown);
+      canvas.removeEventListener("pointermove", onMove);
+      canvas.removeEventListener("pointerup", onUp);
+      canvas.removeEventListener("pointercancel", onUp);
+      canvas.removeEventListener("pointerleave", onLeave);
+    };
+  }, [brain, nodes]);
+
+  // The render loop is set up once per data change; it reaches the
+  // current focusPerson through this ref.
+  const focusPersonRef = useRef(focusPerson);
+  focusPersonRef.current = focusPerson;
+
+  if (!people) return null;
+  const isExample = !user;
+
+  const heading = (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ember">
+          <span className="tech-dot" /> Memory
+        </p>
+        <h2 className="mt-1 text-3xl font-light tracking-tight text-foreground md:text-4xl">
+          Everyone, in <span className="font-semibold">one mind</span>
+        </h2>
+      </div>
+      {isExample ? (
+        <p className="max-w-xs text-right text-xs text-muted-foreground">
+          An example with made-up people. <Link href="/signup?next=/home" className="givit-link font-semibold">Create an account</Link> to build your own.
+        </p>
+      ) : (
+        <Link href="/people" className="givit-link shrink-0 text-sm font-medium">Manage people →</Link>
+      )}
+    </div>
+  );
 
   if (people.length === 0) {
     return (
-      <section className="container py-8 md:py-12">
-        <div className="mb-5 flex items-center gap-2">
-          <Brain className="h-4 w-4 text-givit-ember" />
-          <h2 className="font-serif text-2xl font-bold text-foreground md:text-3xl">Your memory graph</h2>
-        </div>
+      <section className="container py-10 md:py-14">
+        {heading}
         <Link
           href="/people"
-          className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-border py-12 text-center transition hover:border-givit-ember/40 hover:bg-givit-sand/40"
+          className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border py-14 text-center transition hover:border-givit-ember/50"
         >
-          <UserRound className="h-8 w-8 text-givit-ember" />
-          <p className="font-semibold text-givit-ink">Nothing to map yet</p>
-          <p className="max-w-sm text-sm text-muted-foreground">Add a person and this fills in automatically: you, them, and what GIVIT learns about them over time.</p>
+          <UserRound className="h-7 w-7 text-givit-ember" />
+          <p className="font-semibold text-givit-ink">Nothing to remember yet</p>
+          <p className="max-w-sm text-sm text-muted-foreground">Add a person and they appear here, connected to what GIVIT learns about them over time.</p>
         </Link>
       </section>
     );
   }
 
-  const angleStep = (2 * Math.PI) / people.length;
-  // Half-width (in degrees) of the angular slice each person "owns" for
-  // their own interest satellites, with a safety margin subtracted so
-  // adjacent people's clusters never reach into each other's slice even at
-  // MAX_PEOPLE (the tightest spacing, 60° per person).
-  const sectorHalfDeg = Math.min(28, 360 / people.length / 2 - 4);
+  const selected = people.find((p) => p.id === selectedId) ?? null;
+  const interestTotal = people.reduce((sum, p) => sum + p.interests.length, 0);
+  const controlClass = "flex h-8 w-8 items-center justify-center rounded-full text-white/60 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-givit-ember";
 
   return (
-    <section className="container py-8 md:py-12">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-givit-ember" />
-          <h2 className="font-serif text-2xl font-bold text-foreground md:text-3xl">Your memory graph</h2>
+    <section className="container py-10 md:py-14">
+      {heading}
+
+      <div ref={wrapRef} className="relative overflow-hidden rounded-3xl" style={{ background: BG }}>
+        <canvas
+          ref={canvasRef}
+          role="img"
+          aria-label={`A rotating 3D brain with ${people.length} saved ${people.length === 1 ? "person" : "people"} connected to it. Use the list below to select someone.`}
+          className="block w-full cursor-grab touch-pan-y select-none active:cursor-grabbing"
+        />
+
+        {/* Readout, top left: plain numbers, no chrome. */}
+        <div className="pointer-events-none absolute left-4 top-4 font-mono text-[10px] uppercase leading-relaxed tracking-widest text-white/45 sm:left-6 sm:top-5">
+          <p><span className="text-white/85">{String(people.length).padStart(2, "0")}</span> people</p>
+          <p><span className="text-white/85">{String(interestTotal).padStart(2, "0")}</span> things known</p>
+          <p className="mt-1 hidden text-white/30 sm:block">Drag to turn</p>
         </div>
-        <Link href="/people" className="givit-link shrink-0 text-sm font-medium">Manage people →</Link>
-      </div>
 
-      <div className="relative overflow-hidden rounded-2xl p-3 sm:p-4" style={{ background: GRAPH_BG }}>
-        {/* Ambient drift, not decoration bolted on top -- two slow, blurred
-            fields of color moving underneath everything else, the same
-            technique an ambient looping background reel uses to keep a dark
-            panel from feeling static without ever drawing the eye. */}
-        <div className="pointer-events-none absolute -left-16 top-6 h-56 w-56 rounded-full opacity-25 blur-3xl animate-drift" style={{ background: NODE_COLOR }} />
-        <div className="pointer-events-none absolute -right-12 bottom-0 h-64 w-64 rounded-full opacity-20 blur-3xl animate-drift-slow" style={{ background: SATELLITE_COLOR }} />
+        {/* Controls, top right. */}
+        <div className="absolute right-3 top-3 flex items-center gap-0.5 rounded-full bg-white/[0.06] p-1 backdrop-blur-sm sm:right-5 sm:top-4">
+          <button type="button" className={controlClass} onClick={() => setSpinning((s) => !s)} aria-label={spinning ? "Pause rotation" : "Resume rotation"} title={spinning ? "Pause rotation" : "Resume rotation"}>
+            {spinning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+          </button>
+          <button type="button" className={controlClass} onClick={() => setZoom((z) => Math.max(0.7, +(z - 0.15).toFixed(2)))} aria-label="Zoom out" title="Zoom out">
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <button type="button" className={controlClass} onClick={() => setZoom((z) => Math.min(1.6, +(z + 0.15).toFixed(2)))} aria-label="Zoom in" title="Zoom in">
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className={controlClass}
+            onClick={() => { setZoom(1); setSpread(1); focusPerson(null); view.current.pitch = 0.18; view.current.vyaw = 0; view.current.vpitch = 0; }}
+            aria-label="Reset view"
+            title="Reset view"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+        </div>
 
-        {/* The data readout -- one node's real numbers stated plainly,
-            cycling with which node is under scan, the way an instrument
-            reports the channel it's currently reading rather than a
-            decorative label sitting still. */}
-        {(() => {
-          const scanned = people[scanIdx];
-          if (!scanned) return null;
-          return (
-            <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-[10px] uppercase leading-relaxed text-white/70 backdrop-blur-sm sm:right-4 sm:top-4">
-              <p className="font-bold tracking-widest text-white/40">MEMORY SCAN</p>
-              <p className="text-white/40">NODE {String(scanIdx + 1).padStart(2, "0")} / {String(people.length).padStart(2, "0")}</p>
-              <p className="mt-1 font-bold tracking-wide text-white">{truncate(scanned.name, 18)}</p>
-              <p className="text-white/50">{scanned.interests.length} INTEREST{scanned.interests.length === 1 ? "" : "S"} LOGGED</p>
+        {/* Spread: how far the people sit from the brain. */}
+        <label className="absolute bottom-4 right-4 hidden items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-white/45 sm:flex sm:right-6">
+          Spread
+          <input
+            type="range"
+            min={0.8}
+            max={1.5}
+            step={0.01}
+            value={spread}
+            onChange={(e) => setSpread(Number(e.target.value))}
+            className="h-1 w-28 cursor-pointer accent-[#ff5a3d]"
+          />
+        </label>
+
+        {/* Whoever is in focus. */}
+        {selected && (
+          <div className="slide-up absolute inset-x-3 bottom-3 flex items-center gap-4 rounded-2xl bg-black/70 p-3 backdrop-blur-md sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-80 sm:p-4">
+            <PersonPortrait recipientId={selected.id} name={selected.name} photoUrl={selected.photoUrl} size="md" editable={!isExample} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg font-light tracking-tight text-white">{selected.name}</p>
+              <p className="truncate text-xs text-white/55">
+                {[selected.relationship, selected.interests.length ? `${selected.interests.length} thing${selected.interests.length === 1 ? "" : "s"} known` : "nothing known yet"].filter(Boolean).join(" · ")}
+              </p>
+              <Link
+                href={`/gift?q=${encodeURIComponent(`Gift for ${selected.name}${selected.interests.length ? `, loves ${selected.interests.slice(0, 4).join(", ")}` : ""}`)}`}
+                className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-givit-ember hover:underline"
+              >
+                <RibbonBow className="h-3.5 w-3.5" /> Find a gift
+              </Link>
             </div>
-          );
-        })()}
-
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="relative mx-auto h-auto w-full" role="img" aria-label="Map of saved people and their known interests">
-          <defs>
-            {/* Scoped to whichever single node is under scan -- everything
-                else on the graph stays flat and calm, which is what keeps
-                this reading as an instrument taking one reading at a time
-                instead of a dozen things glowing and pulsing at once. */}
-            <filter id="scan-glow" x="-120%" y="-120%" width="340%" height="340%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            {/* A much wider, softer blur than scan-glow -- this is a glowing
-                shell around the whole diagram, not a highlight on one small
-                node. */}
-            <filter id="brain-case-glow" x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="9" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <linearGradient id="brain-case-stroke" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor={BRAIN_EMBER} />
-              <stop offset="100%" stopColor={BRAIN_CORAL} />
-            </linearGradient>
-            <radialGradient id="brain-case-fill" cx="50%" cy="42%" r="65%">
-              <stop offset="0%" stopColor={BRAIN_EMBER} stopOpacity={0.16} />
-              <stop offset="100%" stopColor={BRAIN_CORAL} stopOpacity={0} />
-            </radialGradient>
-          </defs>
-
-          {/* The graph sits inside an actual glowing brain case, in the
-              real brand ember/coral (not the network's own muted internal
-              palette) -- a soft radial fill for the "energy field" behind
-              everything, a gradient stroke with a wide blur for the glow
-              itself, and one center fissure line, all still (a slow
-              breathing opacity is the one motion here, not a fast pulse). */}
-          <g style={{ animation: "brain-case-breathe 5s ease-in-out infinite" }}>
-            <path d={brainCasePath(CENTER.x, CENTER.y - 5, 300, 225)} fill="url(#brain-case-fill)" stroke="none" />
-            <path
-              d={brainCasePath(CENTER.x, CENTER.y - 5, 300, 225)}
-              fill="none"
-              stroke="url(#brain-case-stroke)"
-              strokeWidth={2}
-              filter="url(#brain-case-glow)"
-            />
-            <path
-              d={`M ${CENTER.x} ${CENTER.y - 5 - 225 * 0.88} Q ${CENTER.x + 14} ${CENTER.y - 5 - 225 * 0.3} ${CENTER.x - 6} ${CENTER.y - 5 + 225 * 0.15} T ${CENTER.x} ${CENTER.y - 5 + 225 * 0.55}`}
-              fill="none"
-              stroke="url(#brain-case-stroke)"
-              strokeOpacity={0.6}
-              strokeWidth={1.25}
-            />
-          </g>
-
-          {/* faint static field of unconnected dots -- reads as "network",
-              not just "diagram" */}
-          {Array.from({ length: 26 }).map((_, i) => {
-            const fx = (i * 137.5) % WIDTH;
-            const fy = (i * 71.3) % HEIGHT;
-            return <circle key={`field-${i}`} cx={fx} cy={fy} r={1} className="fill-white/[0.06]" />;
-          })}
-
-          {/* Center -> person spokes, curved and still, except the one
-              currently under scan: that edge glows and carries a single
-              traveling pulse, restarting each scan cycle. */}
-          {people.map((person, i) => {
-            const angle = -Math.PI / 2 + i * angleStep;
-            const personPos = polar(CENTER.x, CENTER.y, PERSON_RADIUS, angle);
-            const d = curvePath(CENTER.x, CENTER.y, personPos.x, personPos.y);
-            const isScanned = i === scanIdx;
-            return (
-              <g key={`edge-${person.id}`}>
-                <path
-                  d={d}
-                  stroke={NODE_COLOR}
-                  strokeOpacity={isScanned ? 0.8 : 0.3}
-                  strokeWidth={isScanned ? 1.75 : 1.25}
-                  fill="none"
-                  filter={isScanned ? "url(#scan-glow)" : undefined}
-                />
-                {isScanned && (
-                  <circle r={3} fill={NODE_COLOR}>
-                    <animateMotion key={scanIdx} dur="1.6s" repeatCount="indefinite" path={d} />
-                  </circle>
-                )}
-              </g>
-            );
-          })}
-
-          {/* Person -> interest satellite spokes + nodes, drawn before the
-              person nodes so each person's own circle paints on top of its
-              spokes' inner endpoints. */}
-          {people.map((person, i) => {
-            const angle = -Math.PI / 2 + i * angleStep;
-            const personPos = polar(CENTER.x, CENTER.y, PERSON_RADIUS, angle);
-            const shown = person.interests.slice(0, MAX_INTERESTS_SHOWN);
-            const extra = person.interests.length - shown.length;
-            const items = extra > 0 ? [...shown, `+${extra} more`] : shown;
-            if (items.length === 0) return null;
-            const spread = items.length > 1 ? sectorHalfDeg : 0;
-
-            return (
-              <g key={`satellites-${person.id}`}>
-                {items.map((label, idx) => {
-                  const t = items.length > 1 ? idx / (items.length - 1) : 0.5;
-                  const offsetDeg = (t - 0.5) * 2 * spread;
-                  const satAngle = angle + (offsetDeg * Math.PI) / 180;
-                  const satPos = polar(CENTER.x, CENTER.y, PERSON_RADIUS + INTEREST_RADIUS, satAngle);
-                  const cos = Math.cos(satAngle);
-                  const anchor = cos > 0.15 ? "start" : cos < -0.15 ? "end" : "middle";
-                  const isVertical = anchor === "middle";
-                  const textX = satPos.x + (anchor === "start" ? 9 : anchor === "end" ? -9 : 0);
-                  const textY = isVertical ? satPos.y + 18 : satPos.y + 4;
-                  const isMore = label.startsWith("+");
-                  const satD = curvePath(personPos.x, personPos.y, satPos.x, satPos.y, 0.12);
-                  return (
-                    <g key={`${person.id}-sat-${idx}`}>
-                      {isMore && <title>{person.interests.slice(MAX_INTERESTS_SHOWN).join(", ")}</title>}
-                      <path d={satD} stroke={SATELLITE_COLOR} strokeOpacity={0.4} strokeWidth={1} fill="none" />
-                      <circle
-                        cx={satPos.x}
-                        cy={satPos.y}
-                        r={4.5}
-                        fill={isMore ? "none" : SATELLITE_COLOR}
-                        stroke={isMore ? SATELLITE_COLOR : undefined}
-                        strokeWidth={isMore ? 1.5 : 0}
-                      />
-                      <text x={textX} y={textY} textAnchor={anchor} className="fill-white/70 text-[11px] font-medium">
-                        {isMore ? label : truncate(label, 16)}
-                      </text>
-                    </g>
-                  );
-                })}
-              </g>
-            );
-          })}
-
-          <defs>
-            <linearGradient id="you-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor={NODE_COLOR} />
-              <stop offset="100%" stopColor={SATELLITE_COLOR} />
-            </linearGradient>
-          </defs>
-          <circle cx={CENTER.x} cy={CENTER.y} r={22} fill="url(#you-gradient)" />
-          <text x={CENTER.x} y={CENTER.y + 5} textAnchor="middle" className="fill-white text-[13px] font-bold">You</text>
-
-          {people.map((person, i) => {
-            const angle = -Math.PI / 2 + i * angleStep;
-            const pos = polar(CENTER.x, CENTER.y, PERSON_RADIUS, angle);
-            const hasInterests = person.interests.length > 0;
-            const isScanned = i === scanIdx;
-            return (
-              <g key={`node-${person.id}`} filter={isScanned ? "url(#scan-glow)" : undefined}>
-                <circle
-                  cx={pos.x}
-                  cy={pos.y}
-                  r={isScanned ? 22 : 20}
-                  fill={hasInterests ? NODE_COLOR : GRAPH_BG}
-                  stroke={NODE_COLOR}
-                  strokeWidth={hasInterests ? 0 : 2}
-                  strokeDasharray={hasInterests ? undefined : "5 3"}
-                  style={{ transition: "r 0.4s ease" }}
-                />
-                <text x={pos.x} y={pos.y + 5} textAnchor="middle" className="fill-white text-[13px] font-bold">
-                  {initials(person.name)}
-                </text>
-                <text x={pos.x} y={pos.y + 35} textAnchor="middle" className="fill-white/85 text-[13px] font-semibold">
-                  {truncate(person.name, 14)}
-                </text>
-                {!hasInterests && (
-                  <text x={pos.x} y={pos.y + 51} textAnchor="middle" className="fill-white/45 text-[11px] italic">
-                    nothing known yet
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
+          </div>
+        )}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 px-1 text-xs">
-        <p className="text-sm text-foreground">
-          <CountUp value={people.length} className="font-mono font-semibold" /> {people.length === 1 ? "person" : "people"} mapped ·{" "}
-          <CountUp value={people.filter((p) => p.interests.length > 0).length} className="font-mono font-semibold" /> with interests known
-        </p>
-        <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: `linear-gradient(135deg, ${NODE_COLOR}, ${SATELLITE_COLOR})` }} /> You</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: NODE_COLOR }} /> Person</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SATELLITE_COLOR }} /> Interest</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border border-dashed" style={{ borderColor: NODE_COLOR }} /> Still learning</span>
-        </div>
+      {/* The same people as real buttons: the keyboard and screen-reader
+          route into the model, and a quick index for everyone else. */}
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
+        {people.map((person) => (
+          <button
+            key={person.id}
+            type="button"
+            onClick={() => focusPerson(person.id === selectedId ? null : person.id)}
+            aria-pressed={person.id === selectedId}
+            className={`border-b pb-0.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-givit-ember ${
+              person.id === selectedId ? "border-givit-ember font-semibold text-givit-ember" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {person.name}
+          </button>
+        ))}
       </div>
     </section>
   );

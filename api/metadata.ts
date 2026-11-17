@@ -1,6 +1,6 @@
 /// <reference path="./mjs-modules.d.ts" />
 import { fetchPageMetadata } from "../server/api-lib/metadata.mjs";
-import { syncEtsyProducts } from "../server/api-lib/etsy.mjs";
+import { syncEtsyProducts, fetchEtsyTrending } from "../server/api-lib/etsy.mjs";
 import { getUserFromRequest } from "../server/api-lib/auth.mjs";
 import { restFetch } from "../server/api-lib/supabase-rest.mjs";
 import { getCreditStatus, spendCredits, grantCredits, hasGrantedForPaymentIntent, createCreditCheckoutSession, confirmCreditCheckoutSession, CREDIT_PACKS } from "../server/api-lib/credits.mjs";
@@ -219,6 +219,23 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === "GET" && req.query?.action === "credits") {
     await handleCreditStatus(req, res);
+    return;
+  }
+
+  // GET ?action=trending = what's popular on Etsy right now for the
+  // current season (see fetchEtsyTrending). Public and identical for
+  // everyone, so the CDN holds it for 30 minutes and serves a stale copy
+  // while it refreshes; the Trending rail falls back to its own picks on
+  // any failure here.
+  if (req.method === "GET" && req.query?.action === "trending") {
+    try {
+      const items = await fetchEtsyTrending();
+      res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
+      res.status(200).json({ source: "etsy", items });
+    } catch (error: any) {
+      console.error("Etsy trending failed:", error?.message);
+      res.status(502).json({ source: "etsy", items: [], error: "Etsy is unavailable right now." });
+    }
     return;
   }
 

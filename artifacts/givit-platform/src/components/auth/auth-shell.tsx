@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "wouter";
-import { ShieldCheck, CreditCard, Sparkles } from "lucide-react";
+import { ShieldCheck, CreditCard } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { Reveal } from "@/components/ui/reveal";
 
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
@@ -21,7 +22,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
           <ul className="stagger-children space-y-3 text-sm text-white/80">
             <li className="slide-up flex items-center gap-2.5"><ShieldCheck className="h-4 w-4 shrink-0 text-givit-coral" /> No brand deals in rankings</li>
             <li className="slide-up flex items-center gap-2.5"><CreditCard className="h-4 w-4 shrink-0 text-givit-coral" /> You approve before any charge</li>
-            <li className="slide-up flex items-center gap-2.5"><Sparkles className="h-4 w-4 shrink-0 text-givit-coral" /> AI-personalized picks, not guesswork</li>
+            <li className="slide-up flex items-center gap-2.5"><RibbonBow className="h-4 w-4 shrink-0 text-givit-coral" /> AI-personalized picks, not guesswork</li>
           </ul>
         </Reveal>
 
@@ -32,7 +33,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
         <div className="w-full max-w-md">
           <Link href="/" className="mb-6 flex items-center justify-center gap-2 lg:hidden">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-givit-ember">
-              <Sparkles className="h-4 w-4 text-white" />
+              <RibbonBow className="h-4 w-4 text-white" />
             </div>
             <span className="font-serif text-2xl font-bold text-givit-ink">GIVIT</span>
           </Link>

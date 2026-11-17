@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams, Link } from "wouter";
-import { ArrowLeft, Gift, Trash2, UserPlus, Shuffle, Gem, Sparkles, ExternalLink, ListChecks, Users } from "lucide-react";
+import { ArrowLeft, Trash2, UserPlus, Shuffle, ExternalLink } from "lucide-react";
 import { PageShell } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
-import { GiftBox3D } from "@/components/ui/gift-box-3d";
-import { AmbientParticles } from "@/components/ui/ambient-particles";
 import { useAuth } from "@/lib/auth/use-auth";
 import {
   getSecretSantaGroup,
@@ -24,6 +22,18 @@ import {
 import { getCohort } from "@/lib/data/gifting-cohorts";
 import { recommendGifts, type GiftRecommendResult } from "@/lib/gift-recommend";
 import { formatMoney } from "@/lib/format";
+import { RoundTableScene, type RoundTableStep } from "@/components/roundtable/round-table-scene";
+
+// The flow as it happens on this page. The arcs drawn on the table during
+// "Names are drawn" are a fixed decorative pattern, never the real draw.
+const GROUP_STEPS: RoundTableStep[] = [
+  { highlight: "seats", title: "Everyone takes a seat", body: "The organizer adds people by email. Each person needs a GIVIT account." },
+  { highlight: "center", title: "Say what you'd like", body: "Your interests and notes are shown to whoever draws your name." },
+  { highlight: "pairing", title: "Names are drawn", body: "Once at least 3 people are in, the organizer shuffles and everyone is assigned privately." },
+  { highlight: "delivery", title: "You see your person", body: "Only your own match appears here, along with what they'd like." },
+];
+
+const FIELD = "w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20";
 
 export default function SecretSantaGroupPage() {
   const { id } = useParams<{ id: string }>();
@@ -130,7 +140,7 @@ export default function SecretSantaGroupPage() {
     const interests = interestsText.split(",").map((s) => s.trim()).filter(Boolean);
     const { error } = await updateMySecretSantaWishlist(myRow.id, { wishlist_notes: notes, interests });
     setSavingWishlist(false);
-    setWishlistError(error ? "Couldn't save -- try again." : "");
+    setWishlistError(error ? "Couldn't save. Try again." : "");
   }
 
   async function handleDeleteGroup() {
@@ -159,110 +169,161 @@ export default function SecretSantaGroupPage() {
   }
 
   const isOrganizer = group.organizer_id === user.id;
+  const shuffled = group.status === "shuffled";
 
   return (
-    <PageShell className="max-w-2xl">
+    <PageShell className="max-w-3xl">
       <Link href="/secret-santa" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> All groups
       </Link>
 
-      {/* Same dark instrument-panel hero as the group list page -- a group
-          detail page is where people actually spend time (wishlist, reveal),
-          so it earns the same premium treatment as the entry point. */}
-      <section className="relative mb-6 overflow-hidden rounded-3xl bg-black p-6 text-white shadow-xl md:p-8">
-        <div className="pointer-events-none absolute -right-12 -top-16 h-56 w-56 rounded-full bg-givit-coral/25 blur-3xl" />
-        <div className="pointer-events-none absolute -left-12 -bottom-8 h-48 w-48 rounded-full bg-givit-ember/20 blur-3xl" />
-        <AmbientParticles />
-        <div className="relative flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className={`flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-widest ${group.status === "shuffled" ? "text-success" : "text-givit-coral"}`}>
-              {group.status === "shuffled" ? <Sparkles className="h-3 w-3" /> : <Gem className="h-3 w-3" />}
-              {group.status === "shuffled" ? "Shuffled" : "Not shuffled yet"}
-            </p>
-            <h1 className="mt-2 font-serif text-3xl font-bold leading-tight">{group.name}</h1>
-            <p className="mt-1 text-sm text-white/60">
-              {group.occasion || "Gift exchange"}
-              {group.budget_cents ? ` · $${(group.budget_cents / 100).toFixed(0)} per person` : ""}
-              {group.event_date ? ` · ${new Date(`${String(group.event_date).slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
-            </p>
-            {isOrganizer && (
-              <button type="button" onClick={handleDeleteGroup} className="mt-3 flex items-center gap-1 text-xs font-medium text-white/40 hover:text-destructive">
-                <Trash2 className="h-3.5 w-3.5" /> Delete group
-              </button>
-            )}
-          </div>
-          <div className="hidden shrink-0 sm:block">
-            <GiftBox3D size={72} glow={0.3} />
-          </div>
-        </div>
-      </section>
+      {/* Compact round table. Seats are this group's real members when the
+          viewer is allowed to load them (the organizer); otherwise anonymous
+          place cards. It never shows who is giving to whom. */}
+      <RoundTableScene
+        compact
+        className="mb-10"
+        seats={participants.map((p) => ({ id: p.id, label: p.name }))}
+        steps={GROUP_STEPS}
+        eyebrow={shuffled ? "Shuffled" : "Not shuffled yet"}
+        title={group.name}
+        lede={
+          <>
+            {group.occasion || "Gift exchange"}
+            {group.budget_cents ? ` · $${(group.budget_cents / 100).toFixed(0)} per person` : ""}
+            {group.event_date ? ` · ${new Date(`${String(group.event_date).slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
+          </>
+        }
+      >
+        {isOrganizer && (
+          <button type="button" onClick={handleDeleteGroup} className="flex items-center gap-1 text-xs font-medium text-white/40 hover:text-destructive">
+            <Trash2 className="h-3.5 w-3.5" /> Delete group
+          </button>
+        )}
+      </RoundTableScene>
+
+      {/* My assignment -- only ever the caller's own, via the RPC */}
+      {shuffled && myRow && (
+        <section className="mb-12">
+          {assignment === undefined ? (
+            <div className="flex justify-center py-6"><div className="h-5 w-5 animate-spin rounded-full border-4 border-givit-ember border-t-transparent" /></div>
+          ) : assignment ? (
+            <div className="slide-up">
+              <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">You're giving to</p>
+              <p className="mt-2 break-words text-4xl font-light tracking-tight text-givit-ink sm:text-5xl">
+                <span className="font-semibold givit-gradient-text">{assignment.name}</span>
+              </p>
+              {assignment.wishlist_notes && <p className="mt-4 max-w-xl border-l border-border pl-4 text-sm italic leading-6 text-muted-foreground">"{assignment.wishlist_notes}"</p>}
+              {assignment.interests.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {assignment.interests.map((i) => <span key={i} className="tag-pill capitalize">{i}</span>)}
+                </div>
+              )}
+
+              {picks.length > 0 && (
+                <div className="mt-8">
+                  <p className="border-b border-border pb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    Picks for {assignment.name.split(" ")[0]}
+                  </p>
+                  <ul className="grid gap-x-10 sm:grid-cols-2">
+                    {picks.map((r) => (
+                      <li key={r.id} className="border-b border-border">
+                        <Link href={`/products/${r.slug}`} className="group block py-4">
+                          <p className="line-clamp-2 text-sm font-semibold text-foreground transition-colors group-hover:text-givit-ember">{r.name}</p>
+                          <p className="mt-1 line-clamp-2 text-xs italic leading-snug text-muted-foreground">{r.match_reason}</p>
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="font-mono text-sm font-bold text-givit-ink">{formatMoney(r.sale_price_cents ?? r.price_cents)}</span>
+                            <span className="flex items-center gap-1 text-xs font-semibold text-givit-ember"><ExternalLink className="h-3 w-3" /> View</span>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No assignment found for you in this group.</p>
+          )}
+        </section>
+      )}
+
+      {group.status === "open" && !isOrganizer && (
+        <p className="mb-12 border-l-2 border-givit-ember pl-4 text-sm leading-6 text-muted-foreground">
+          Waiting on the organizer to shuffle. You'll see who you're giving to here once they do.
+        </p>
+      )}
 
       {/* My wishlist -- what I'd like to receive, visible to whoever draws me */}
-      <div className="givit-panel mb-6 p-5">
-        <div className="flex items-center gap-2">
-          <ListChecks className="h-4 w-4 text-givit-ember" />
-          <h2 className="font-serif text-lg font-bold text-givit-ink">What you'd like</h2>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">Shown to whoever draws your name -- interests + anything specific you're hoping for.</p>
-        <form onSubmit={handleSaveWishlist} className="mt-3 space-y-2">
+      <section className="mb-12 border-t border-border pt-6">
+        <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">Your wishlist</p>
+        <h2 className="mt-1 text-2xl font-light tracking-tight text-givit-ink">What <span className="font-semibold givit-gradient-text">you'd like</span></h2>
+        <p className="mt-2 text-sm text-muted-foreground">Shown to whoever draws your name: interests, plus anything specific you're hoping for.</p>
+        <form onSubmit={handleSaveWishlist} className="mt-4 max-w-xl space-y-3">
           <input
             value={interestsText}
             onChange={(e) => setInterestsText(e.target.value)}
+            aria-label="Interests, comma-separated"
             placeholder="Interests, comma-separated: coffee, hiking, reading..."
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20"
+            className={`h-10 ${FIELD}`}
           />
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            placeholder="Anything specific -- sizes, colors, things to avoid..."
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20"
+            aria-label="Anything specific"
+            placeholder="Anything specific: sizes, colors, things to avoid..."
+            className={`py-2 ${FIELD}`}
           />
           <Button type="submit" size="sm" disabled={savingWishlist} className="rounded-full bg-givit-ember text-white hover:bg-givit-ember-hover">
             {savingWishlist ? "Saving..." : "Save"}
           </Button>
           {wishlistError && <p className="text-xs font-medium text-destructive">{wishlistError}</p>}
         </form>
-        {!myRow && isOrganizer && <p className="mt-2 text-xs text-muted-foreground">Add your own email below to join the exchange yourself.</p>}
-      </div>
+        {!myRow && isOrganizer && <p className="mt-3 text-xs text-muted-foreground">Add your own email below to join the exchange yourself.</p>}
+      </section>
 
       {/* Organizer: manage participants + shuffle */}
       {isOrganizer && (
-        <div className="givit-panel mb-6 p-5">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-givit-ember" />
-            <h2 className="font-serif text-lg font-bold text-givit-ink">Participants ({participants.length})</h2>
+        <section className="border-t border-border pt-6">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">Around the table</p>
+              <h2 className="mt-1 text-2xl font-light tracking-tight text-givit-ink">Participants</h2>
+            </div>
+            <span className="font-mono text-xs font-bold uppercase tracking-widest text-muted-foreground">{participants.length} in</span>
           </div>
-          <div className="mt-3 space-y-2">
+          <ul className="mt-4 border-t border-border">
             {participants.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 rounded-lg bg-muted/50 p-2.5 text-sm">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full givit-gradient text-xs font-bold text-white">
+              <li key={p.id} className="flex items-center gap-3 border-b border-border py-3 text-sm">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border font-mono text-xs font-bold text-givit-ink">
                   {p.name.trim().slice(0, 1).toUpperCase()}
-                </div>
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-foreground">{p.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{p.email}</p>
                 </div>
                 {group.status === "open" && (
-                  <button type="button" onClick={() => handleRemove(p.id)} aria-label="Remove" className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                  <button type="button" onClick={() => handleRemove(p.id)} aria-label={`Remove ${p.name}`} className="shrink-0 rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
           {group.status === "open" && (
             <>
-              <form onSubmit={handleAddParticipant} className="mt-3 flex flex-wrap gap-2">
+              <form onSubmit={handleAddParticipant} className="mt-4 flex flex-wrap gap-2">
                 <input
                   value={addEmail}
                   onChange={(e) => setAddEmail(e.target.value)}
                   type="email"
                   required
+                  aria-label="Email of the person to add"
                   placeholder="their@email.com"
-                  className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20"
+                  className={`h-10 min-w-0 flex-1 ${FIELD}`}
                 />
-                <Button type="submit" size="sm" disabled={adding} variant="outline" className="rounded-lg">
+                <Button type="submit" size="sm" disabled={adding} variant="outline" className="h-10 rounded-lg">
                   <UserPlus className="h-4 w-4" /> {adding ? "Adding..." : "Add"}
                 </Button>
               </form>
@@ -270,73 +331,14 @@ export default function SecretSantaGroupPage() {
               <Button
                 onClick={handleShuffle}
                 disabled={participants.length < 3 || shuffling}
-                className="mt-4 w-full rounded-full bg-givit-ember text-white hover:bg-givit-ember-hover disabled:opacity-50"
+                className="mt-6 w-full rounded-full givit-gradient givit-glow text-white hover:brightness-110 disabled:opacity-50 sm:w-auto sm:px-8"
               >
                 <Shuffle className="h-4 w-4" /> {shuffling ? "Shuffling..." : "Shuffle & assign"}
               </Button>
-              {participants.length < 3 && <p className="mt-2 text-center text-xs text-muted-foreground">Need at least 3 people to shuffle.</p>}
+              {participants.length < 3 && <p className="mt-2 text-xs text-muted-foreground">Need at least 3 people to shuffle.</p>}
             </>
           )}
-        </div>
-      )}
-
-      {/* My assignment -- only ever the caller's own, via the RPC */}
-      {group.status === "shuffled" && myRow && (
-        <div className="givit-section relative overflow-hidden">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-givit-coral/10 blur-3xl" />
-          {assignment === undefined ? (
-            <div className="flex justify-center py-6"><div className="h-5 w-5 animate-spin rounded-full border-4 border-givit-ember border-t-transparent" /></div>
-          ) : assignment ? (
-            <div className="slide-up relative">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl givit-gradient givit-glow text-white">
-                  <Gift className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ember">You're giving to</p>
-                  <p className="font-serif text-2xl font-bold text-givit-ink">{assignment.name}</p>
-                </div>
-              </div>
-              {assignment.wishlist_notes && <p className="mt-3 text-sm italic leading-6 text-muted-foreground">"{assignment.wishlist_notes}"</p>}
-              {assignment.interests.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {assignment.interests.map((i) => <span key={i} className="tag-pill capitalize">{i}</span>)}
-                </div>
-              )}
-
-              {picks.length > 0 && (
-                <div className="mt-5 border-t border-border/50 pt-4">
-                  <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    <Sparkles className="h-3.5 w-3.5 text-givit-ember" /> Picks for {assignment.name.split(" ")[0]}
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {picks.map((r) => (
-                      <Link key={r.id} href={`/products/${r.slug}`} className="rounded-xl border border-border bg-card p-3 transition hover:border-givit-ember/40">
-                        <p className="line-clamp-2 text-sm font-semibold text-foreground">{r.name}</p>
-                        <p className="mt-1 text-xs italic leading-snug text-muted-foreground line-clamp-2">{r.match_reason}</p>
-                        <div className="mt-2 flex items-center justify-between">
-                          <span className="font-bold text-givit-ember">{formatMoney(r.sale_price_cents ?? r.price_cents)}</span>
-                          <span className="flex items-center gap-1 text-xs font-semibold text-givit-ember"><ExternalLink className="h-3 w-3" /> View</span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-muted-foreground">No assignment found for you in this group.</p>
-          )}
-        </div>
-      )}
-
-      {group.status === "open" && !isOrganizer && (
-        <div className="flex items-center gap-3 rounded-2xl border border-dashed border-border bg-givit-sand/40 p-5 text-sm text-muted-foreground">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-givit-ember/10">
-            <Gem className="h-4 w-4 text-givit-ember" />
-          </div>
-          Waiting on the organizer to shuffle -- you'll see who you're giving to here once they do.
-        </div>
+        </section>
       )}
     </PageShell>
   );

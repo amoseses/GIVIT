@@ -1,29 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  Bookmark,
-  Compass,
-  Search,
-  SlidersHorizontal,
-  Sparkles,
-  Cpu,
-  Gamepad2,
-  Home as HomeIcon,
-  ChefHat,
-  BookOpen,
-  PenTool,
-  Flower2,
-  Trees,
-  Dumbbell,
-  PawPrint,
-  Palette,
-  Cookie,
-  Ticket,
-  LayoutGrid,
-  UserRound,
-  X,
-  type LucideIcon,
+  Bookmark, Compass, Search, SlidersHorizontal, Cpu, Gamepad2, Home as HomeIcon, ChefHat, BookOpen, PenTool, Flower2, Trees, Dumbbell, PawPrint, Palette, Cookie, Ticket, LayoutGrid, UserRound, X, type LucideIcon,
 } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 
 import { Breadcrumbs, PageShell } from "@/components/layout/page-shell";
 import { RecentlyViewedRail } from "@/components/personalization/recently-viewed";
@@ -43,6 +23,7 @@ import {
 } from "@/lib/data/marketplace";
 import { fetchAdminProducts } from "@/lib/data/data-layer";
 import { getTrendingProductClicks } from "@/lib/supabase/db";
+import { TrendingRail } from "@/components/product/trending-rail";
 import { useSearchParams } from "@/lib/hooks/use-search-params";
 import { useAuth } from "@/lib/auth/use-auth";
 import { getGiftRecipients } from "@/lib/supabase/db";
@@ -655,11 +636,15 @@ export default function ProductsPage() {
           </div>
         </aside>
 
-        <div>
+        <div className="min-w-0">
+          {/* Only on the unfiltered front of the marketplace -- once
+              someone has searched or filtered, they want their results,
+              not a rail of something else above them. */}
+          {!q && !categorySlug && !occasion && !ageGroup && !minStr && !maxStr && !forId && <TrendingRail className="mb-6" />}
           {!q && !categorySlug && featuredPicks.length > 0 && (
             <section className="mb-6">
               <div className="mb-3 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-givit-ember" />
+                <RibbonBow className="h-4 w-4 text-givit-ember" />
                 <h2 className="font-serif text-lg font-bold text-givit-ink">This week's curated picks</h2>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
@@ -714,7 +699,7 @@ export default function ProductsPage() {
                 </select>
               </div>
               <Link href="/gift" className="inline-flex items-center gap-1 text-sm font-semibold text-givit-ember hover:underline">
-                <Sparkles className="h-4 w-4" /> Ask Your Gift AI
+                <RibbonBow className="h-4 w-4" /> Ask Your Gift AI
               </Link>
             </div>
           </div>

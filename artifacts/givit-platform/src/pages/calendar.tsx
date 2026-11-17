@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { toast } from "sonner";
-import { Bell, CalendarDays, Check, ChevronDown, Globe, UserRound, Sparkles } from "lucide-react";
+import { Bell, Check, ChevronDown, Globe, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/layout/page-shell";
 import { useAuth } from "@/lib/auth/use-auth";
@@ -11,7 +11,8 @@ import { AutoGiftCalendar } from "@/components/autogift/autogift-calendar";
 import { GoogleCalendarConnect } from "@/components/calendar/google-calendar-connect";
 import { getHolidaysForRegion, SUPPORTED_REGIONS } from "@/lib/data/holidays";
 import { useUserRegion } from "@/lib/hooks/use-user-region";
-import { AmbientParticles } from "@/components/ui/ambient-particles";
+import { GiftCosmos } from "@/components/ui/gift-cosmos";
+import { GiftNode, HolidayBeacon } from "@/components/calendar/calendar-glyphs";
 
 export default function CalendarPage() {
   const { user, profile, loading } = useAuth();
@@ -87,19 +88,15 @@ export default function CalendarPage() {
   if (!user) {
     return (
       <PageShell>
-        <div className="relative overflow-hidden rounded-2xl bg-black px-6 py-16 text-center sm:px-12">
-          <div className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-givit-ember/25 blur-3xl" />
-          <div className="pointer-events-none absolute -right-16 bottom-0 h-64 w-64 rounded-full bg-givit-coral/20 blur-3xl" />
-          <AmbientParticles />
-          <div className="relative mx-auto flex max-w-lg flex-col items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl givit-gradient givit-glow">
-              <CalendarDays className="h-6 w-6 text-white" />
-            </div>
-            <h2 className="font-serif text-3xl font-bold text-white">Every date & holiday, in one place.</h2>
-            <p className="text-sm leading-6 text-white/70">Save birthdays and anniversaries in People and track regional public holidays automatically, year-round.</p>
-            <div className="mt-2 flex flex-wrap justify-center gap-3">
-              <Button asChild className="rounded-full givit-gradient px-6 text-white hover:brightness-110"><Link href="/signup?next=/calendar">Create free account</Link></Button>
-              <Button asChild variant="outline" className="rounded-full border-white/20 bg-white/10 px-6 text-white hover:bg-white/20"><Link href="/login?next=/calendar">Log in</Link></Button>
+        <div data-cosmos-dark className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0d] px-6 py-20 sm:px-12 sm:py-28">
+          <GiftCosmos intensity={0.6} centerX={0.78} centerY={0.45} scale={1.5} />
+          <div className="relative max-w-xl">
+            <p className="font-mono text-xs font-bold uppercase tracking-widest text-givit-ember">Calendar</p>
+            <h2 className="mt-3 text-4xl font-light tracking-tight text-white sm:text-5xl">Every date and holiday, <span className="givit-gradient-text font-semibold">in one place.</span></h2>
+            <p className="mt-4 max-w-md text-sm leading-6 text-white/65">Save birthdays and anniversaries in People and track regional public holidays automatically, year-round.</p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Button asChild className="rounded-full bg-givit-ember px-6 text-white hover:bg-givit-ember-hover"><Link href="/signup?next=/calendar">Create free account</Link></Button>
+              <Button asChild variant="outline" className="rounded-full border-white/20 bg-transparent px-6 text-white hover:bg-white/10 hover:text-white"><Link href="/login?next=/calendar">Log in</Link></Button>
             </div>
           </div>
         </div>
@@ -111,11 +108,11 @@ export default function CalendarPage() {
 
   return (
     <PageShell>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">Calendar</p>
-          <h1 className="mt-1 font-serif text-3xl font-bold text-givit-ink">Your gifting calendar</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Every date saved in <Link href="/people" className="text-givit-ember hover:underline">People</Link> plus regional public holidays.</p>
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-givit-ember">Calendar</p>
+          <h1 className="mt-2 text-4xl font-light tracking-tight text-givit-ink sm:text-5xl">Your gifting <span className="givit-gradient-text font-semibold">calendar</span></h1>
+          <p className="mt-2 text-sm text-muted-foreground">Every date saved in <Link href="/people" className="text-givit-ember hover:underline">People</Link> plus regional public holidays.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Google Calendar Connect / Sync Button */}
@@ -125,17 +122,18 @@ export default function CalendarPage() {
             <button
               type="button"
               onClick={() => setShowRegionPicker(!showRegionPicker)}
-              className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-xs hover:border-givit-teal/40 hover:bg-muted/60 transition-all cursor-pointer"
+              aria-expanded={showRegionPicker}
+              className="flex max-w-full items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-givit-ember/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-givit-ember cursor-pointer"
             >
-              <Globe className="h-3.5 w-3.5 text-givit-teal" />
+              <Globe className="h-3.5 w-3.5 shrink-0 text-givit-ember" />
               <span className="text-muted-foreground font-medium">Region:</span>
-              <span>{selectedRegion.flag} {selectedRegion.name} ({selectedRegion.gmt})</span>
-              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${showRegionPicker ? "rotate-180 text-givit-teal" : ""}`} />
+              <span className="truncate">{selectedRegion.flag} {selectedRegion.name} ({selectedRegion.gmt})</span>
+              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${showRegionPicker ? "rotate-180 text-givit-ember" : ""}`} />
             </button>
 
             {showRegionPicker && (
-              <div className="absolute right-0 top-10 z-50 w-64 rounded-2xl border border-border bg-card/95 p-1.5 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150">
-                <div className="max-h-72 overflow-y-auto space-y-0.5 pr-1 text-xs">
+              <div className="cal-pop absolute left-0 top-10 z-50 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card/95 p-1.5 shadow-2xl backdrop-blur-md sm:left-auto sm:right-0">
+                <div className="max-h-72 overflow-y-auto pr-1 text-xs">
                   {SUPPORTED_REGIONS.map((r) => {
                     const isSelected = r.code === region;
                     return (
@@ -146,10 +144,10 @@ export default function CalendarPage() {
                           setRegion(r.code);
                           setShowRegionPicker(false);
                         }}
-                        className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
+                        className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-givit-ember ${
                           isSelected
-                            ? "bg-givit-teal/15 text-givit-teal font-bold"
-                            : "text-foreground hover:bg-muted"
+                            ? "font-bold text-givit-ember"
+                            : "font-medium text-foreground hover:bg-muted"
                         }`}
                       >
                         <span className="flex items-center gap-2">
@@ -158,7 +156,7 @@ export default function CalendarPage() {
                         </span>
                         <span className="flex items-center gap-1.5">
                           <span className="font-mono text-[10px] font-normal opacity-70">{r.gmt}</span>
-                          {isSelected && <Check className="h-3.5 w-3.5 text-givit-teal" />}
+                          {isSelected && <Check className="h-3.5 w-3.5 text-givit-ember" />}
                         </span>
                       </button>
                     );
@@ -179,44 +177,46 @@ export default function CalendarPage() {
           <AutoGiftCalendar recipients={recipients} scheduledKeys={scheduledKeys} region={region} />
         </div>
 
-        <aside className="space-y-4">
-          <div className="givit-section">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-serif text-lg font-bold text-givit-ink">Upcoming Dates</h2>
-              <span className="text-xs font-semibold text-muted-foreground">{selectedRegion.flag} {selectedRegion.name}</span>
+        <aside className="space-y-5">
+          <div>
+            <div className="flex items-baseline justify-between border-b border-border pb-3">
+              <h2 className="font-mono text-xs font-bold uppercase tracking-widest text-givit-ink">Upcoming Dates</h2>
+              <span className="text-xs font-medium text-muted-foreground">{selectedRegion.flag} {selectedRegion.name}</span>
             </div>
 
             {upcomingAll.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No upcoming dates found.</p>
+              <p className="pt-3 text-sm text-muted-foreground">No upcoming dates found.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="divide-y divide-border/60">
                 {upcomingAll.map((o, i) => {
                   const daysUntil = Math.ceil((o.parsed.getTime() - Date.now()) / 86400000);
                   const urgency = o.isHoliday
-                    ? "bg-givit-teal/10 text-givit-teal"
+                    ? "text-givit-coral"
                     : daysUntil <= 14
-                    ? "bg-destructive/10 text-destructive"
+                    ? "text-destructive"
                     : daysUntil <= 42
-                    ? "bg-amber-50 text-amber-700"
-                    : "bg-success/10 text-success";
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-success";
 
                   const scheduled = !o.isHoliday && scheduledKeys.has(`${o.recipient}-${o.label}-${o.date}`);
 
                   return (
-                    <div key={i} className="flex items-center gap-3 rounded-xl border border-border/50 bg-card p-3">
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${o.isHoliday ? "bg-givit-teal" : "givit-gradient"}`}>
-                        {o.isHoliday ? <Sparkles className="h-4 w-4 text-white" /> : o.recipient[0]?.toUpperCase()}
-                      </div>
+                    <div key={i} className="flex items-center gap-3 py-3">
+                      {o.isHoliday ? (
+                        <HolidayBeacon className="h-6 w-6 shrink-0 text-givit-coral" />
+                      ) : (
+                        <GiftNode className="h-6 w-6 shrink-0" />
+                      )}
                       <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-foreground">
-                          {o.recipient}
+                        <p className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-foreground">
+                          <span className="truncate">{o.recipient}</span>
                           {o.milestone && (
-                            <span className="shrink-0 rounded-full bg-givit-ember/10 px-1.5 py-0.5 text-[10px] font-bold text-givit-ember">Turning {o.age}</span>
+                            <span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ember">Turning {o.age}</span>
                           )}
                         </p>
                         <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                           {o.isHoliday ? (
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-givit-teal">Public Holiday</span>
+                            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-givit-coral">Public Holiday</span>
                           ) : scheduled ? (
                             <><Bell className="h-3 w-3 text-givit-ember" /> Reminder scheduled</>
                           ) : (
@@ -224,8 +224,9 @@ export default function CalendarPage() {
                           )}
                         </p>
                       </div>
-                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${urgency}`}>
-                        {o.parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {daysUntil}d
+                      <span className="shrink-0 text-right font-mono text-[11px] tabular-nums leading-tight">
+                        <span className="block font-semibold text-foreground">{o.parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                        <span className={`block font-bold ${urgency}`}>{daysUntil}d</span>
                       </span>
                     </div>
                   );
@@ -234,7 +235,7 @@ export default function CalendarPage() {
             )}
           </div>
 
-          <Button asChild className="w-full rounded-md bg-givit-ember text-white hover:bg-givit-ember-hover">
+          <Button asChild className="w-full rounded-full bg-givit-ember text-white hover:bg-givit-ember-hover">
             <Link href="/concierge"><Bell className="h-4 w-4" /> Open AutoGift</Link>
           </Button>
         </aside>

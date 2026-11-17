@@ -308,6 +308,20 @@ function aiApiDevMiddleware(env: Record<string, string>): Plugin {
          * ============================================================
          */
 
+        // Same branch production serves from api/metadata.ts.
+        if (req.url?.startsWith("/api/metadata?action=trending") && req.method === "GET") {
+          res.setHeader("Content-Type", "application/json");
+          try {
+            const etsyUrl = pathToFileURL(path.resolve(import.meta.dirname, "../../server/api-lib/etsy.mjs")).href;
+            const { fetchEtsyTrending } = await import(etsyUrl);
+            res.end(JSON.stringify({ source: "etsy", items: await fetchEtsyTrending() }));
+          } catch (error: any) {
+            res.statusCode = 502;
+            res.end(JSON.stringify({ source: "etsy", items: [], error: error?.message ?? "Etsy unavailable" }));
+          }
+          return;
+        }
+
         if (
           req.url?.startsWith("/api/metadata") &&
           req.method === "GET"
@@ -426,6 +440,9 @@ export default defineConfig(({ mode }) => {
     process.env.SUPABASE_URL ||
     env.SUPABASE_URL ||
     env.VITE_SUPABASE_URL;
+
+  process.env.ETSY_API_KEY = process.env.ETSY_API_KEY || env.ETSY_API_KEY;
+  process.env.ETSY_SHARED_SECRET = process.env.ETSY_SHARED_SECRET || env.ETSY_SHARED_SECRET;
 
   process.env.STRIPE_SECRET_KEY =
     process.env.STRIPE_SECRET_KEY ||

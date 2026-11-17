@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { X, Share2, Check, Feather, PartyPopper, Building2, Heart, Sparkles } from "lucide-react";
+import { X, Share2, Check, Feather, PartyPopper, Building2, Heart } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { Button } from "@/components/ui/button";
 import { QUIZ_QUESTIONS, GIFTING_COHORTS, scoreQuiz, getCohort, type GiftingCohort } from "@/lib/data/gifting-cohorts";
 import { GiftBox3D } from "@/components/ui/gift-box-3d";
@@ -153,9 +154,9 @@ export function GiftingQuizModal({ onClose, onComplete }: Props) {
             {/* A quiet celebratory flourish around the badge reveal -- kept
                 low-opacity and non-interactive so it reads as a sorting-hat
                 "ta-da" moment rather than confetti-app decoration. */}
-            <Sparkles className="animate-particle pointer-events-none absolute left-6 top-2 h-4 w-4 text-givit-coral/40" style={{ animationDelay: "0.1s" }} />
-            <Sparkles className="animate-particle pointer-events-none absolute right-8 top-6 h-3 w-3 text-givit-ember/40" style={{ animationDelay: "0.6s" }} />
-            <Sparkles className="animate-particle pointer-events-none absolute bottom-2 left-12 h-3 w-3 text-givit-ember/30" style={{ animationDelay: "1.1s" }} />
+            <RibbonBow className="animate-particle pointer-events-none absolute left-6 top-2 h-4 w-4 text-givit-coral/40" style={{ animationDelay: "0.1s" }} />
+            <RibbonBow className="animate-particle pointer-events-none absolute right-8 top-6 h-3 w-3 text-givit-ember/40" style={{ animationDelay: "0.6s" }} />
+            <RibbonBow className="animate-particle pointer-events-none absolute bottom-2 left-12 h-3 w-3 text-givit-ember/30" style={{ animationDelay: "1.1s" }} />
             <div className="animate-badge-pop relative mx-auto w-fit">
               <CohortMark cohort={resultCohort} glow />
               {/* The guild's emoji as an actual sticker-badge overlapping the

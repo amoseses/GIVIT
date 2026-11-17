@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
-import { 
-  CheckCircle, FileSpreadsheet, Loader2, Package, Plus, Sparkles, Upload, X, 
-  BarChart3, Users, ShoppingBag, TrendingUp, Eye, Edit3, Save, Trash2, 
-  Search, Filter, CheckSquare, AlertTriangle, DollarSign, Activity
+import {
+  CheckCircle, FileSpreadsheet, Loader2, Package, Plus, Upload, X, BarChart3, Users, ShoppingBag, TrendingUp, Eye, Edit3, Save, Trash2, Search, Filter, CheckSquare, AlertTriangle, DollarSign, Activity,
 } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/layout/page-shell";
 import { Reveal } from "@/components/ui/reveal";
@@ -361,7 +360,7 @@ export default function AdminPage() {
               />
             </div>
             <Button onClick={syncFromEtsy} disabled={etsySyncing} variant="outline" className="rounded-lg">
-              {etsySyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {etsySyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RibbonBow className="h-4 w-4" />}
               Sync from Etsy
             </Button>
             <Button onClick={() => { setEditingProduct({ name: "", slug: "", price_cents: 0, description: "", is_published: false }); setShowEditModal(true); }} className="rounded-lg bg-givit-ember text-white hover:bg-givit-ember-hover">
@@ -520,7 +519,7 @@ export default function AdminPage() {
                   </div>
                   {!processing && pendingCount > 0 && (
                     <Button onClick={runProcessing} className="rounded-lg bg-givit-ember text-white hover:bg-givit-ember-hover h-8 text-xs">
-                      <Sparkles className="h-3.5 w-3.5" /> Process {pendingCount} with AI
+                      <RibbonBow className="h-3.5 w-3.5" /> Process {pendingCount} with AI
                     </Button>
                   )}
                   {processing && (
@@ -570,7 +569,7 @@ export default function AdminPage() {
             <div className="rounded-xl border border-givit-ember/20 bg-gradient-to-br from-givit-ember/15 to-givit-coral/10 p-5">
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-givit-ember text-white">
-                  <Sparkles className="h-4 w-4" />
+                  <RibbonBow className="h-4 w-4" />
                 </div>
                 <div>
                   <h2 className="font-semibold text-givit-ink">How AI processing works</h2>

@@ -36,10 +36,10 @@ export const MEMBERSHIP_TIERS = [
   { id: "member", label: "GIVIT Member", priceCents: 699, monthlyCredits: 40 },
 ] as const;
 export type MembershipTierId = (typeof MEMBERSHIP_TIERS)[number]["id"];
-// Still behind VITE_ENABLE_MEMBERSHIP=true: the checkout/sync backend is
-// fixed, but the account page doesn't yet call syncMembership() when
-// Checkout redirects back, and no real subscription has been run end to
-// end. Turn it on only after both.
+// Still behind VITE_ENABLE_MEMBERSHIP=true. The whole path is built --
+// checkout, activation on the redirect back (account.tsx calls
+// syncMembership()), monthly credits -- but no real subscription has been
+// run end to end yet. Turn it on after one test purchase works.
 export const MEMBERSHIP_ENABLED = import.meta.env.VITE_ENABLE_MEMBERSHIP === "true";
 export const MEMBERSHIP_PRICE_LABEL = `$${(MEMBERSHIP_TIERS[0].priceCents / 100).toFixed(2)}`;
 // What the same credits cost bought as the best one-time pack -- the

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Sparkles, CheckCircle, ThumbsDown, ThumbsUp, Heart } from "lucide-react";
+import { X, CheckCircle, ThumbsDown, ThumbsUp, Heart } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { respondToSurvey, generateGiftBundles, regenerateBundleItem, createAutoGiftOrder, removeLocalAutoGiftOrder, type SurveyResponse, type GiftSuggestion, type AutoGiftBundle, type AutoGiftOrderItem } from "@/lib/autogift/survey";
 import { personalizeBundlesWithAI } from "@/lib/autogift/ai-personalize";
 import { spendCredit } from "@/lib/credits/credits";
@@ -422,7 +423,7 @@ export function GiftSurveyModal({
               </div>
 
               <Button onClick={handleSurveySubmit} disabled={interests.length < 2} className="w-full rounded-lg bg-givit-ember text-white hover:bg-givit-ember-hover disabled:cursor-not-allowed disabled:opacity-50">
-                <Sparkles className="h-4 w-4" /> Generate gift ideas
+                <RibbonBow className="h-4 w-4" /> Generate gift ideas
               </Button>
               {interests.length < 2 && (
                 <p className="text-center text-xs text-muted-foreground">Pick at least 2 interests to continue ({interests.length}/2).</p>
@@ -438,7 +439,7 @@ export function GiftSurveyModal({
               </p>
               {aiPersonalizing && (
                 <div className="flex items-center gap-2 rounded-lg bg-givit-ember/5 px-3 py-2 text-xs font-medium text-givit-ember">
-                  <Sparkles className="h-3.5 w-3.5 animate-pulse" /> Your Gift AI is personalizing these picks and drafting a card message…
+                  <RibbonBow className="h-3.5 w-3.5 animate-pulse" /> Your Gift AI is personalizing these picks and drafting a card message…
                 </div>
               )}
               {aiCreditError && (
@@ -529,7 +530,7 @@ export function GiftSurveyModal({
                     background. Literal dark colors here instead, since the
                     card's own background never changes. */}
                 <div className="relative overflow-hidden rounded-2xl border border-givit-ember/25 bg-gradient-to-br from-givit-sand via-white to-white p-6 shadow-sm">
-                  <Sparkles className="pointer-events-none absolute right-5 top-5 h-5 w-5 text-givit-ember/25" />
+                  <RibbonBow className="pointer-events-none absolute right-5 top-5 h-5 w-5 text-givit-ember/25" />
                   <Heart className="pointer-events-none absolute bottom-5 left-5 h-4 w-4 text-givit-coral/20" />
                   <p className="text-[11px] font-bold uppercase tracking-widest text-givit-ember">For {recipientName} &middot; {occasion}</p>
                   <p className="mt-4 min-h-[4.5rem] font-serif text-lg italic leading-relaxed text-[#1a1208]">
@@ -585,7 +586,7 @@ export function GiftSurveyModal({
                   disabled={!address.line1 || !address.city || !address.state || !address.zip || placingOrder || hasPaymentMethod === false}
                   className="flex-1 rounded-lg bg-givit-ember text-white hover:bg-givit-ember-hover"
                 >
-                  <Sparkles className="h-4 w-4" /> {placingOrder ? "Sending to admin…" : `Approve & send to admin: $${(grandTotal / 100).toFixed(2)}`}
+                  <RibbonBow className="h-4 w-4" /> {placingOrder ? "Sending to admin…" : `Approve & send to admin: $${(grandTotal / 100).toFixed(2)}`}
                 </Button>
               </div>
             </div>
@@ -604,7 +605,7 @@ export function GiftSurveyModal({
               </p>
               {cardMessage && (
                 <div className="relative mx-auto mt-5 max-w-sm overflow-hidden rounded-2xl border border-givit-ember/25 bg-gradient-to-br from-givit-sand via-white to-white p-5 text-left shadow-sm">
-                  <Sparkles className="pointer-events-none absolute right-4 top-4 h-4 w-4 text-givit-ember/25" />
+                  <RibbonBow className="pointer-events-none absolute right-4 top-4 h-4 w-4 text-givit-ember/25" />
                   <p className="text-[11px] font-bold uppercase tracking-widest text-givit-ember">For {recipientName} &middot; {occasion}</p>
                   <p className="mt-3 font-serif text-base italic leading-relaxed text-[#1a1208]">{cardMessage}</p>
                   <p className="mt-3 text-right text-xs font-medium text-[#6b6558]">Sent with GIVIT</p>

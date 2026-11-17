@@ -1,18 +1,25 @@
 import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Gift, PlusCircle, Users, Sparkles, ShieldCheck, Shuffle, PartyPopper } from "lucide-react";
+import { ArrowRight, PlusCircle, ShieldCheck } from "lucide-react";
 import { PageShell } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
-import { GiftBox3D } from "@/components/ui/gift-box-3d";
-import { AmbientParticles } from "@/components/ui/ambient-particles";
 import { useAuth } from "@/lib/auth/use-auth";
 import { createSecretSantaGroup, listMySecretSantaGroups, type SecretSantaGroup } from "@/lib/supabase/secret-santa";
+import { RoundTableScene, type RoundTableStep } from "@/components/roundtable/round-table-scene";
 
-const HOW_IT_WORKS = [
-  { Icon: PlusCircle, title: "Start a group", desc: "Name it, set a budget and exchange date -- takes about 20 seconds." },
-  { Icon: Users, title: "Add everyone", desc: "Each person needs a GIVIT account so their wishlist stays theirs to edit." },
-  { Icon: Shuffle, title: "Shuffle & reveal", desc: "One click assigns everyone privately -- not even the organizer can see the full list." },
+// The opening walkthrough: the real flow on this page and the group page.
+// The "pairing" arcs on the table are a fixed decorative pattern, they
+// never reflect an actual draw.
+const SECRET_SANTA_STEPS: RoundTableStep[] = [
+  { highlight: "center", title: "Start a group", body: "Name it, set a budget and an exchange date. It takes about 20 seconds." },
+  { highlight: "seats", title: "Add everyone", body: "Each person needs a GIVIT account so their wishlist stays theirs to edit." },
+  { highlight: "pairing", title: "Shuffle and reveal", body: "One click assigns everyone privately. Not even the organizer can see the full list." },
+  { highlight: "delivery", title: "Everyone gets their person", body: "Each giver sees only the one name they drew, along with that person's wishlist." },
 ];
+
+const HOW_IT_WORKS = SECRET_SANTA_STEPS.slice(0, 3);
+
+const FIELD = "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20";
 
 export default function SecretSantaPage() {
   const { user, loading } = useAuth();
@@ -81,80 +88,48 @@ export default function SecretSantaPage() {
 
   return (
     <PageShell wide>
-      {/* Dark instrument-panel hero, same material language as Marketplace/
-          Concierge/People's own heroes -- Secret Santa is a first-class
-          feature, not a utility form, and it should look like one. */}
-      <section className="relative mb-8 overflow-hidden rounded-3xl bg-black p-8 text-white shadow-xl md:p-12">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-80 w-80 rounded-full bg-givit-coral/25 blur-3xl" />
-        <div className="pointer-events-none absolute -left-16 -bottom-10 h-72 w-72 rounded-full bg-givit-ember/20 blur-3xl" />
-        <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
-        <AmbientParticles />
-        <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] font-bold uppercase tracking-widest text-white/50">
-              <span className="text-givit-coral">GIVIT</span>
-              <span>GROUP GIFTING</span>
-            </div>
-            <h1 className="mt-4 font-serif text-4xl font-bold leading-[1.05] md:text-5xl">
-              Secret Santa
-            </h1>
-            <p className="mt-3 max-w-lg text-sm leading-6 text-white/60 md:text-base">
-              Create a group, everyone adds a wishlist, and we shuffle who gives to whom -- privately, so not even the organizer can see the full list once it's drawn.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Button onClick={() => setShowCreate((v) => !v)} className="h-11 rounded-full givit-gradient px-6 text-white hover:brightness-110">
-                <PlusCircle className="h-4 w-4" /> New group
-              </Button>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-white/50">
-                <ShieldCheck className="h-3.5 w-3.5" /> Assignments are never readable by anyone but the giver
-              </div>
-            </div>
-          </div>
-          <div className="hidden justify-self-end lg:block">
-            <GiftBox3D size={110} glow={0.35} />
-          </div>
-        </div>
-      </section>
-
-      {/* How it works -- a first-time visitor to this page has no other
-          context for what a "group" or "shuffle" even means here. */}
-      <div className="mb-8 grid gap-3 sm:grid-cols-3">
-        {HOW_IT_WORKS.map((step, i) => (
-          <div key={step.title} className="givit-panel flex items-start gap-3 p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-givit-ember/10 font-mono text-xs font-bold text-givit-ember">
-              {i + 1}
-            </div>
-            <div>
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-givit-ink"><step.Icon className="h-3.5 w-3.5 text-givit-ember" /> {step.title}</p>
-              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{step.desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* The round table is the page's hero: Secret Santa is a group of
+          people around one exchange, so that is what the page opens on. */}
+      <RoundTableScene
+        className="mb-10"
+        seats={[]}
+        steps={SECRET_SANTA_STEPS}
+        eyebrow="GIVIT Group gifting"
+        title={<>Secret <span className="font-semibold givit-gradient-text">Santa</span></>}
+        lede="Create a group, everyone adds a wishlist, and we shuffle who gives to whom. It stays private, so not even the organizer can see the full list once it's drawn."
+      >
+        <Button onClick={() => setShowCreate((v) => !v)} aria-expanded={showCreate} className="h-11 rounded-full givit-gradient px-6 text-white hover:brightness-110">
+          <PlusCircle className="h-4 w-4" /> New group
+        </Button>
+        <p className="flex items-center gap-1.5 text-xs font-medium text-white/50">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> Assignments are never readable by anyone but the giver
+        </p>
+      </RoundTableScene>
 
       {showCreate && (
-        <form onSubmit={handleCreate} className="givit-panel slide-up mb-8 space-y-3 p-5">
-          <p className="flex items-center gap-2 font-serif text-lg font-bold text-givit-ink"><Gift className="h-4 w-4 text-givit-ember" /> Start a new group</p>
-          <div className="grid gap-3 sm:grid-cols-2">
+        <form onSubmit={handleCreate} className="slide-up mb-12 border-y border-border py-8">
+          <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">New group</p>
+          <h2 className="mt-1 text-2xl font-light tracking-tight text-givit-ink">Start a <span className="font-semibold givit-gradient-text">new group</span></h2>
+          <div className="mt-5 grid max-w-2xl gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
-              <label className="text-xs font-semibold text-muted-foreground">Group name</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Family Secret Santa 2026" className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20" />
+              <label htmlFor="ss-name" className="text-xs font-semibold text-muted-foreground">Group name</label>
+              <input id="ss-name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Family Secret Santa 2026" className={FIELD} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground">Occasion</label>
-              <input value={occasion} onChange={(e) => setOccasion(e.target.value)} placeholder="Secret Santa" className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20" />
+              <label htmlFor="ss-occasion" className="text-xs font-semibold text-muted-foreground">Occasion</label>
+              <input id="ss-occasion" value={occasion} onChange={(e) => setOccasion(e.target.value)} placeholder="Secret Santa" className={FIELD} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground">Budget per person (optional)</label>
-              <input value={budget} onChange={(e) => setBudget(e.target.value)} type="number" min="0" step="1" placeholder="$50" className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20" />
+              <label htmlFor="ss-budget" className="text-xs font-semibold text-muted-foreground">Budget per person (optional)</label>
+              <input id="ss-budget" value={budget} onChange={(e) => setBudget(e.target.value)} type="number" min="0" step="1" placeholder="$50" className={FIELD} />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <label className="text-xs font-semibold text-muted-foreground">Exchange date (optional)</label>
-              <input value={eventDate} onChange={(e) => setEventDate(e.target.value)} type="date" className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20" />
+              <label htmlFor="ss-date" className="text-xs font-semibold text-muted-foreground">Exchange date (optional)</label>
+              <input id="ss-date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} type="date" className={FIELD} />
             </div>
           </div>
-          {error && <p className="text-xs font-medium text-destructive">{error}</p>}
-          <div className="flex gap-2 pt-1">
+          {error && <p className="mt-3 text-xs font-medium text-destructive">{error}</p>}
+          <div className="mt-5 flex gap-2">
             <Button type="submit" disabled={creating || !name.trim()} className="rounded-full bg-givit-ember text-white hover:bg-givit-ember-hover">
               {creating ? "Creating..." : "Create group"}
             </Button>
@@ -163,51 +138,71 @@ export default function SecretSantaPage() {
         </form>
       )}
 
-      {loadError && <p className="mb-4 text-sm font-medium text-destructive">{loadError}</p>}
-
-      {groups === null ? (
-        <div className="flex min-h-[160px] items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-4 border-givit-ember border-t-transparent" />
-        </div>
-      ) : groups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border py-16 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-givit-ember/10">
-            <PartyPopper className="h-6 w-6 text-givit-ember" />
+      <div className="grid gap-x-12 gap-y-12 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <section className="min-w-0">
+          <div className="border-b border-border pb-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">Your exchanges</p>
+            <h2 className="mt-1 text-2xl font-light tracking-tight text-givit-ink sm:text-3xl">Groups you're <span className="font-semibold givit-gradient-text">part of</span></h2>
           </div>
-          <p className="mt-4 font-serif text-xl font-bold text-givit-ink">No groups yet</p>
-          <p className="mt-2 max-w-xs text-sm text-muted-foreground">Start one for family, friends, or a team -- everyone needs a GIVIT account to be added.</p>
-          <Button onClick={() => setShowCreate(true)} className="mt-5 rounded-full bg-givit-ember text-white hover:bg-givit-ember-hover">
-            <PlusCircle className="h-4 w-4" /> Start your first group
-          </Button>
-        </div>
-      ) : (
-        <div className="stagger-children grid gap-3 sm:grid-cols-2">
-          {groups.map((g) => (
-            <Link
-              key={g.id}
-              href={`/secret-santa/${g.id}`}
-              className="slide-up givit-panel group flex items-center justify-between gap-3 p-4 transition hover:-translate-y-0.5 hover:border-givit-ember/40 hover:shadow-lg"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl givit-gradient text-white shadow-sm">
-                  {g.status === "shuffled" ? <Sparkles className="h-4 w-4" /> : <Gift className="h-4 w-4" />}
+
+          {loadError && <p className="mt-4 text-sm font-medium text-destructive">{loadError}</p>}
+
+          {groups === null ? (
+            <div className="flex min-h-[160px] items-center justify-center">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-givit-ember border-t-transparent" />
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="py-10">
+              <p className="text-xl font-light tracking-tight text-givit-ink">No groups yet</p>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">Start one for family, friends, or a team. Everyone needs a GIVIT account to be added.</p>
+              <Button onClick={() => setShowCreate(true)} className="mt-5 rounded-full bg-givit-ember text-white hover:bg-givit-ember-hover">
+                <PlusCircle className="h-4 w-4" /> Start your first group
+              </Button>
+            </div>
+          ) : (
+            <ul className="stagger-children">
+              {groups.map((g) => (
+                <li key={g.id} className="slide-up border-b border-border">
+                  <Link href={`/secret-santa/${g.id}`} className="group flex items-center justify-between gap-4 py-4">
+                    <div className="min-w-0">
+                      <p className="truncate text-lg font-medium tracking-tight text-givit-ink transition-colors group-hover:text-givit-ember">{g.name}</p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {g.occasion || "Gift exchange"}
+                        {g.budget_cents ? ` · $${(g.budget_cents / 100).toFixed(0)} budget` : ""}
+                        {g.organizer_id === user.id ? " · You're organizing" : ""}
+                      </p>
+                    </div>
+                    <span className="flex shrink-0 items-center gap-3">
+                      <span className={`font-mono text-[11px] font-bold uppercase tracking-widest ${g.status === "shuffled" ? "text-success" : "text-amber-600"}`}>
+                        {g.status === "shuffled" ? "Shuffled" : "Open"}
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-givit-ember" />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* How it works -- a first-time visitor to this page has no other
+            context for what a "group" or "shuffle" even means here, and the
+            walkthrough above only plays for a few seconds. */}
+        <aside className="min-w-0 lg:border-l lg:border-border lg:pl-8">
+          <p className="text-xs font-bold uppercase tracking-widest text-givit-ember">How it works</p>
+          <ol className="mt-3">
+            {HOW_IT_WORKS.map((step, i) => (
+              <li key={step.title} className="flex gap-3 border-t border-border py-3">
+                <span className="pt-0.5 font-mono text-xs font-bold text-givit-ember">{String(i + 1).padStart(2, "0")}</span>
+                <div>
+                  <p className="text-sm font-semibold text-givit-ink">{step.title}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{step.body}</p>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate font-serif font-bold text-givit-ink transition-colors group-hover:text-givit-ember">{g.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {g.occasion || "Gift exchange"}
-                    {g.budget_cents ? ` · $${(g.budget_cents / 100).toFixed(0)} budget` : ""}
-                    {g.organizer_id === user.id ? " · You're organizing" : ""}
-                  </p>
-                </div>
-              </div>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${g.status === "shuffled" ? "bg-success/10 text-success" : "bg-amber-50 text-amber-700"}`}>
-                {g.status === "shuffled" ? "Shuffled" : "Open"}
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
+              </li>
+            ))}
+          </ol>
+        </aside>
+      </div>
     </PageShell>
   );
 }

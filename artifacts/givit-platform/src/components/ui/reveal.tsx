@@ -23,6 +23,12 @@ export function Reveal({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  // Once the entrance has played, the inline filter/transform/clip-path
+  // are dropped entirely. Left in place (even as blur(0px) or
+  // translateY(0)) they keep the wrapper a containing block for any
+  // position:fixed descendant -- a modal opened from inside a revealed
+  // section would be positioned against the section, not the screen.
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -30,6 +36,7 @@ export function Reveal({
     // Respect reduced-motion preference: show immediately, no animation.
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setVisible(true);
+      setSettled(true);
       return;
     }
     const observer = new IntersectionObserver(
@@ -54,8 +61,15 @@ export function Reveal({
     return () => { observer.disconnect(); window.clearTimeout(fallback); };
   }, []);
 
-  const style =
-    variant === "triangle"
+  useEffect(() => {
+    if (!visible || settled) return;
+    const t = window.setTimeout(() => setSettled(true), delayMs + 900);
+    return () => window.clearTimeout(t);
+  }, [visible, settled, delayMs]);
+
+  const style = settled
+    ? undefined
+    : variant === "triangle"
       ? {
           opacity: visible ? 1 : 0,
           clipPath: visible ? "polygon(0 0, 100% 0, 100% 100%, 0 100%)" : "polygon(0 0, 0 0, 0 100%, 0 100%)",

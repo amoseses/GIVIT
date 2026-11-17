@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
-import { ExternalLink, Play, Share2, ShieldCheck, Sparkles, Trophy, Truck } from "lucide-react";
+import { ExternalLink, Play, Share2, ShieldCheck, Trophy, Truck } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 
 import { Breadcrumbs, PageShell } from "@/components/layout/page-shell";
 import { ProductGrid } from "@/components/product/product-grid";
@@ -147,7 +148,7 @@ export default function ProductDetailPage() {
 
           <div className="rounded-2xl bg-givit-sand/60 p-4">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-givit-ember">
-              <Sparkles className="h-3.5 w-3.5" /> Editorial pick
+              <RibbonBow className="h-3.5 w-3.5" /> Editorial pick
             </div>
             <p className="mt-2 text-sm leading-6 text-foreground">{product.ai_summary}</p>
             {product.why_we_picked_it ? (
@@ -170,7 +171,7 @@ export default function ProductDetailPage() {
               // a retailer to "shop at".
               <Button asChild className="h-12 rounded-full bg-givit-ember text-white hover:bg-givit-ember-hover">
                 <Link href={`/gift?q=${encodeURIComponent(`I'd like to book: ${product.name}`)}`}>
-                  <Sparkles className="h-4 w-4" /> Request this experience
+                  <RibbonBow className="h-4 w-4" /> Request this experience
                 </Link>
               </Button>
             ) : product.affiliate_url ? (

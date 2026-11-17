@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Sparkles, X } from "lucide-react";
+import { X } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { useAuth } from "@/lib/auth/use-auth";
 import { updateProfile } from "@/lib/supabase/db";
 import { GiftingQuizModal } from "@/components/personalization/gifting-quiz-modal";
 import { AutoGiftOnboardingWizard } from "@/components/autogift/autogift-onboarding-wizard";
 import { SiteTour, type TourStep } from "@/components/personalization/site-tour";
+import { MEMBERSHIP_ENABLED, MEMBERSHIP_PRICE_LABEL, MEMBERSHIP_SAVINGS_PERCENT, MEMBERSHIP_TIERS } from "@/lib/credits/credits";
 
 const KEY = "givit-show-welcome-tour";
 
@@ -26,8 +28,19 @@ const TOUR_STEPS: TourStep[] = [
   {
     targetId: "tour-credits",
     title: "Your Gift AI is free. Always.",
-    body: "That coin badge is for AutoGift only — a few free AutoGifts every year, then small top-up packs when you need more. No subscription, no surprise charges.",
+    // "No subscription" stops being true the moment membership is switched
+    // on, so the line (and the membership step after it) follow the flag.
+    body: MEMBERSHIP_ENABLED
+      ? "That coin badge is for AutoGift only — a few free AutoGifts every year, then small top-up packs when you need more. No surprise charges."
+      : "That coin badge is for AutoGift only — a few free AutoGifts every year, then small top-up packs when you need more. No subscription, no surprise charges.",
   },
+  ...(MEMBERSHIP_ENABLED
+    ? [{
+        targetId: "tour-membership",
+        title: "Gift a lot? Membership is cheaper.",
+        body: `${MEMBERSHIP_PRICE_LABEL} a month puts ${MEMBERSHIP_TIERS[0].monthlyCredits} credits in your balance automatically — ${MEMBERSHIP_SAVINGS_PERCENT}% less per credit than packs. Entirely optional, cancel any time.`,
+      }]
+    : []),
   {
     title: "That's the basics.",
     body: "Add your first person now and GIVIT starts watching their dates right away — or explore on your own, it's all still here whenever you're ready.",
@@ -79,7 +92,7 @@ export function WelcomeTour() {
       <div className="fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4">
         <div className="flex w-full max-w-md items-start gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xl">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-givit-ember/10 text-givit-ember">
-            <Sparkles className="h-4 w-4" />
+            <RibbonBow className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-givit-ink">Find your gifting personality?</p>

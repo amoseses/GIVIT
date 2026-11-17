@@ -1,5 +1,6 @@
 import { Link } from "wouter";
-import { ArrowRight, Bell, Gift, Heart, PackageCheck, Sparkles, UserRound, Zap } from "lucide-react";
+import { ArrowRight, Bell, Gift, Heart, PackageCheck, UserRound, Zap } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 
 import { PeopleDashboard } from "@/components/personalization/people-dashboard";
 import { ProfileCompletionCard } from "@/components/personalization/profile-completion-card";
@@ -9,13 +10,16 @@ import { RelationshipInsights } from "@/components/personalization/relationship-
 import { WelcomeTour } from "@/components/personalization/welcome-tour";
 import { Button } from "@/components/ui/button";
 import { GiftBox3D } from "@/components/ui/gift-box-3d";
+import { GiftCosmos } from "@/components/ui/gift-cosmos";
 import { Reveal } from "@/components/ui/reveal";
 import { TypewriterText } from "@/components/ui/typewriter-text";
 import { useAuth } from "@/lib/auth/use-auth";
 import { useScrollProgress } from "@/lib/hooks/use-scroll-progress";
+import { TrendingRail } from "@/components/product/trending-rail";
+import { MembershipSection } from "@/components/personalization/membership-section";
 
 const HOW_IT_WORKS_STEPS = [
-  { icon: Sparkles, title: "Add someone, once", desc: "Name, interests, budget, dates to avoid — about 30 seconds." },
+  { icon: RibbonBow, title: "Add someone, once", desc: "Name, interests, budget, dates to avoid — about 30 seconds." },
   { icon: Bell, title: "The agent watches the calendar", desc: "Reminders 5–6 weeks before every important date." },
   { icon: PackageCheck, title: "You approve, GIVIT handles it", desc: "Gift proposed with a reason, then ordered and shipped once you say go." },
 ];
@@ -43,7 +47,7 @@ function HowItWorksScroll() {
               <p className="mt-4 text-xs font-bold uppercase tracking-widest text-givit-ember">
                 Step {activeStep + 1} of {HOW_IT_WORKS_STEPS.length}
               </p>
-              <h3 className="mt-1 font-serif text-2xl font-bold text-foreground md:text-3xl">{step.title}</h3>
+              <h3 className="mt-1 text-3xl font-light leading-tight tracking-tight text-foreground md:text-4xl">{step.title}</h3>
               <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground md:mx-0">{step.desc}</p>
             </div>
           </div>
@@ -65,16 +69,6 @@ function HowItWorksScroll() {
   );
 }
 
-// Same ambient-motion pattern as the landing splash — kept low-opacity and
-// pointer-events-none so it reads as atmosphere, not clutter, and never
-// intercepts a click.
-const FLOATING_ICONS = [
-  { Icon: Heart, className: "left-[10%] top-[20%] h-6 w-6 text-givit-coral/25", duration: "8s", delay: "0s" },
-  { Icon: UserRound, className: "right-[12%] top-[16%] h-6 w-6 text-givit-ember/25", duration: "7s", delay: "0.5s" },
-  { Icon: Sparkles, className: "left-[16%] bottom-[24%] h-5 w-5 text-givit-coral/20", duration: "6.5s", delay: "1s" },
-  { Icon: Gift, className: "right-[16%] bottom-[20%] h-6 w-6 text-givit-ember/20", duration: "9s", delay: "0.3s" },
-];
-
 export default function HomePage() {
   const { user } = useAuth();
   return (
@@ -82,15 +76,8 @@ export default function HomePage() {
       <WelcomeTour />
       {/* Hero — minimal, relationship-first, no product wall */}
       <section className="relative overflow-hidden border-b border-border/50 bg-card">
-        <div className="pointer-events-none absolute -top-32 right-0 h-[600px] w-[600px] rounded-full bg-givit-ember/25 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 left-1/4 h-[300px] w-[300px] rounded-full bg-givit-coral/20 blur-3xl" />
-        {FLOATING_ICONS.map(({ Icon, className, duration, delay }, i) => (
-          <Icon
-            key={i}
-            className={`animate-particle pointer-events-none absolute hidden sm:block ${className}`}
-            style={{ animationDuration: duration, animationDelay: delay }}
-          />
-        ))}
+        <GiftCosmos intensity={0.5} centerX={0.5} centerY={0.6} scale={1.3} tilt={68} />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_25%,var(--card)_80%)]" />
 
         <div className="container relative py-16 md:py-24">
           <div className="slide-up mx-auto max-w-xl text-center" style={{ animationDelay: "0ms" }}>
@@ -112,8 +99,8 @@ export default function HomePage() {
               </div>
             </div>
             <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ember">Agentic, personalized gifting</p>
-            <h1 className="font-serif text-4xl font-bold leading-tight text-foreground md:text-5xl">
-              Never send a bad gift again.
+            <h1 className="text-4xl font-light leading-[1.08] tracking-tight text-foreground md:text-6xl">
+              Never send a <span className="givit-gradient-text font-semibold">bad gift</span> again.
             </h1>
             <p className="mt-4 text-base leading-7 text-muted-foreground">
               GIVIT remembers everyone you care about, reasons about what they'd actually love, and lines it up before you approve it.
@@ -164,10 +151,21 @@ export default function HomePage() {
         <RelationshipInsights />
       </div>
 
+      {/* The one product rail on the dashboard, kept below everything
+          about your own people: what's being clicked right now, topped up
+          with seasonal picks and labelled as such (see TrendingRail). */}
+      <Reveal variant="blur">
+        <div className="container mt-10">
+          <TrendingRail />
+        </div>
+      </Reveal>
+
+      <MembershipSection />
+
       {/* Footer CTA -- deliberately not a card. This is the closing line of
           the page, not one more panel in a stack of panels, so it gets
           typed out rather than boxed in. */}
-      <Reveal variant="fade">
+      <Reveal variant="blur">
         <section className="container mt-4 py-10 text-center md:py-14">
           <div className="mx-auto max-w-2xl">
             <h2 className="font-serif text-2xl font-bold text-foreground md:text-3xl">

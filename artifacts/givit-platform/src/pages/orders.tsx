@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
-import { ShoppingBag, Sparkles, ArrowLeft, ExternalLink } from "lucide-react";
+import { ShoppingBag, ArrowLeft, ExternalLink } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { PageShell } from "@/components/layout/page-shell";
 import { useAuth } from "@/lib/auth/use-auth";
 import { getUserOrders, getUserAutoGiftOrders } from "@/lib/supabase/db";
@@ -146,7 +147,7 @@ export default function OrdersPage() {
             <div key={`${order.source}-${order.id}`} className="givit-panel p-5">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  {order.source === "autogift" ? <Sparkles className="h-4 w-4 text-givit-ember" /> : <ShoppingBag className="h-4 w-4 text-givit-ember" />}
+                  {order.source === "autogift" ? <RibbonBow className="h-4 w-4 text-givit-ember" /> : <ShoppingBag className="h-4 w-4 text-givit-ember" />}
                   <div>
                     <p className="text-sm font-semibold text-foreground">
                       {order.source === "autogift" ? `AutoGift for ${order.recipientName ?? "recipient"}` : "Marketplace order"}

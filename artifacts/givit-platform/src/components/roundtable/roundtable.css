@@ -1,0 +1,490 @@
+/* RoundTableScene: a calm CSS-3D round table used as the hero of the
+   AutoGift and Secret Santa pages. Everything is scoped under .rt-stage.
+
+   Coordinate notes: .rt-tilt is rotated rotateX(62deg), so inside it the
+   table plane is XY and +Z points up off the table. .rt-disc spins about Z
+   by --rt-a (written every frame from JS). Anything that should stand
+   upright and face the viewer (the place cards) undoes both rotations. */
+
+.rt-stage {
+  --rt-r: clamp(104px, 29vw, 168px);
+  --rt-tilt: 62deg;
+  --rt-ember: #ff5a3d;
+  --rt-coral: #ff2f87;
+  --rt-paper: #f3ece4;
+  background: linear-gradient(160deg, #0a0a0d 0%, #121116 55%, #16151a 100%);
+}
+
+.rt-stage[data-compact="true"] {
+  --rt-r: clamp(92px, 24vw, 124px);
+}
+
+/* ---------- viewport + camera ---------- */
+
+.rt-viewport {
+  position: relative;
+  height: calc(var(--rt-r) * 1.3 + 96px);
+  perspective: 900px;
+  perspective-origin: 50% 35%;
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+  transition: height 0.9s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+.rt-viewport:active {
+  cursor: grabbing;
+}
+
+.rt-viewport:focus-visible {
+  outline: 1px solid rgb(255 90 61 / 0.7);
+  outline-offset: 2px;
+  border-radius: 16px;
+}
+
+.rt-stage[data-resting="true"] .rt-viewport {
+  height: calc(var(--rt-r) * 0.95 + 68px);
+}
+
+.rt-scale {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.9s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+.rt-stage[data-resting="true"] .rt-scale {
+  transform: scale(0.74);
+}
+
+.rt-tilt {
+  position: absolute;
+  left: 50%;
+  top: 57%;
+  width: calc(var(--rt-r) * 2);
+  height: calc(var(--rt-r) * 2);
+  margin: calc(var(--rt-r) * -1) 0 0 calc(var(--rt-r) * -1);
+  transform: rotateX(var(--rt-tilt));
+  transform-style: preserve-3d;
+}
+
+/* ---------- the table ---------- */
+
+.rt-shadow,
+.rt-slab,
+.rt-surface {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.rt-shadow {
+  transform: translateZ(-70px) scale(1.12);
+  background: radial-gradient(circle, rgb(0 0 0 / 0.75) 0%, rgb(0 0 0 / 0.4) 45%, transparent 70%);
+}
+
+.rt-slab {
+  transform: translateZ(-9px);
+  background: #060608;
+  box-shadow: inset 0 -2px 0 rgb(255 90 61 / 0.22);
+}
+
+/* The surface does not spin, so its rim light stays put relative to the
+   viewer while the markings and seats turn on top of it. */
+.rt-surface {
+  background: radial-gradient(circle at 50% 30%, #26242c 0%, #15141a 55%, #0d0c10 100%);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow:
+    inset 0 -1.5px 0 rgb(255 122 92 / 0.5),
+    inset 0 2px 0 rgb(255 255 255 / 0.07);
+}
+
+.rt-disc {
+  --rt-a: -18deg;
+  position: absolute;
+  inset: 0;
+  transform: rotateZ(var(--rt-a));
+  transform-style: preserve-3d;
+}
+
+.rt-marks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: translateZ(0.5px);
+}
+
+.rt-ring {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.09);
+  stroke-width: 0.5;
+}
+
+.rt-tick {
+  stroke: rgb(255 255 255 / 0.2);
+  stroke-width: 0.5;
+}
+
+.rt-arcs {
+  filter: drop-shadow(0 0 2.5px rgb(255 90 61 / 0.85));
+}
+
+.rt-arc {
+  fill: none;
+  stroke-width: 0.7;
+  stroke-linecap: round;
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 1.02;
+}
+
+.rt-stage[data-highlight="pairing"] .rt-arc {
+  animation: rt-arc-draw 1.1s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: calc(var(--i) * 150ms);
+}
+
+@keyframes rt-arc-draw {
+  from { stroke-dashoffset: 1.02; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* ---------- seats (place cards) ---------- */
+
+.rt-seat {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 42px;
+  margin: -42px 0 0 -26px;
+  transform-origin: 50% 100%;
+  transform:
+    translate(calc(var(--rt-r) * var(--sx)), calc(var(--rt-r) * var(--sy)))
+    rotateZ(calc(var(--rt-a) * -1))
+    rotateX(calc(var(--rt-tilt) * -1));
+}
+
+.rt-card {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(180deg, var(--rt-paper) 0%, #e2d8cd 100%);
+  color: #1a1410;
+  line-height: 1;
+}
+
+.rt-card[data-empty="true"] {
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid rgb(255 255 255 / 0.16);
+}
+
+.rt-card-initials {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.rt-card-name {
+  margin-top: 3px;
+  max-width: 46px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.rt-card-blank {
+  width: 18px;
+  height: 1px;
+  background: rgb(255 255 255 / 0.3);
+}
+
+/* Ember rule along the foot of a card: the "lit" state. */
+.rt-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2.5px;
+  background: linear-gradient(90deg, var(--rt-ember), var(--rt-coral));
+  transform: scaleX(0);
+  transition: transform 0.5s ease;
+}
+
+.rt-stage[data-highlight="seats"] .rt-card::after,
+.rt-stage[data-highlight="pairing"] .rt-card::after {
+  transform: scaleX(1);
+}
+
+.rt-stage[data-highlight="delivery"] .rt-seat[data-target="true"] .rt-card::after {
+  transform: scaleX(1);
+  transition-delay: 1.9s;
+}
+
+.rt-stage[data-highlight="seats"] .rt-card {
+  animation: rt-seat-rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i) * 140ms);
+}
+
+@keyframes rt-seat-rise {
+  from { opacity: 0; transform: translateY(18px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- 3D box (centre gift + parcel) ---------- */
+
+.rt-box {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+
+.rt-box-face {
+  position: absolute;
+  left: calc(var(--bs) / -2);
+  top: calc(var(--bh) / -2);
+  width: var(--bs);
+  height: var(--bh);
+  background: linear-gradient(135deg, var(--rt-ember), var(--rt-coral));
+}
+
+.rt-box-face[data-f="front"] {
+  transform: translate3d(0, calc(var(--bs) / 2), calc(var(--bh) / 2)) rotateX(-90deg);
+}
+.rt-box-face[data-f="back"] {
+  transform: translate3d(0, calc(var(--bs) / -2), calc(var(--bh) / 2)) rotateX(90deg);
+}
+.rt-box-face[data-f="right"] {
+  transform: translate3d(calc(var(--bs) / 2), 0, calc(var(--bh) / 2)) rotateZ(-90deg) rotateX(-90deg);
+  background: linear-gradient(135deg, #d9432a, #c81f66);
+}
+.rt-box-face[data-f="left"] {
+  transform: translate3d(calc(var(--bs) / -2), 0, calc(var(--bh) / 2)) rotateZ(90deg) rotateX(-90deg);
+  background: linear-gradient(135deg, #d9432a, #c81f66);
+}
+
+/* Ribbon band down each side. */
+.rt-box-face::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 42%;
+  width: 16%;
+  background: var(--rt-paper);
+  transform-origin: 50% 100%;
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rt-box-lid {
+  position: absolute;
+  left: calc(var(--bs) / -2 - 2px);
+  top: calc(var(--bs) / -2 - 2px);
+  width: calc(var(--bs) + 4px);
+  height: calc(var(--bs) + 4px);
+  border-radius: 2px;
+  background: linear-gradient(135deg, #ff7a5c, #ff4f97);
+  transform: translateZ(calc(var(--bh) + 0.5px));
+  transform-style: preserve-3d;
+  transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Ribbon cross on the lid. */
+.rt-box-lid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 42%, var(--rt-paper) 42% 58%, transparent 58%),
+    linear-gradient(0deg, transparent 42%, var(--rt-paper) 42% 58%, transparent 58%);
+  transform: translateZ(0.5px);
+  transition: opacity 0.6s ease;
+}
+
+/* The bow: two crossed standing loops, so it reads from every angle. */
+.rt-bow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 12px;
+  margin: -6px 0 0 -9px;
+  border: 2px solid var(--rt-paper);
+  border-radius: 50%;
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rt-bow[data-b="a"] { transform: translateZ(7px) rotateZ(40deg) rotateX(-90deg); }
+.rt-bow[data-b="b"] { transform: translateZ(7px) rotateZ(-40deg) rotateX(-90deg); }
+
+.rt-box-glow {
+  position: absolute;
+  left: calc(var(--bs) * -1.6);
+  top: calc(var(--bs) * -1.6);
+  width: calc(var(--bs) * 3.2);
+  height: calc(var(--bs) * 3.2);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 170 120 / 0.9) 0%, rgb(255 90 61 / 0.35) 30%, transparent 65%);
+  opacity: 0;
+  transform: translateZ(calc(var(--bh) + 3px)) scale(0.4);
+  transition: opacity 0.8s ease, transform 0.9s ease;
+  pointer-events: none;
+}
+
+.rt-parcel .rt-box-glow {
+  display: none;
+}
+
+/* "center": the ribbon lets go, then the lid lifts. */
+.rt-stage[data-highlight="center"] .rt-gift .rt-box-face::after {
+  transform: scaleY(0);
+}
+.rt-stage[data-highlight="center"] .rt-gift .rt-box-lid::before {
+  opacity: 0;
+}
+.rt-stage[data-highlight="center"] .rt-gift .rt-bow[data-b="a"] {
+  transform: translateZ(7px) rotateZ(40deg) rotateX(-90deg) scale(0);
+}
+.rt-stage[data-highlight="center"] .rt-gift .rt-bow[data-b="b"] {
+  transform: translateZ(7px) rotateZ(-40deg) rotateX(-90deg) scale(0);
+}
+.rt-stage[data-highlight="center"] .rt-gift .rt-box-lid {
+  transform: translateZ(calc(var(--bh) + 26px)) rotateX(-16deg) rotateZ(10deg);
+  transition-delay: 0.45s;
+}
+.rt-stage[data-highlight="center"] .rt-gift .rt-box-glow {
+  opacity: 1;
+  transform: translateZ(calc(var(--bh) + 3px)) scale(1);
+  transition-delay: 0.6s;
+}
+
+/* "delivery": a small parcel leaves the centre and lands at one seat. */
+.rt-parcel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: scale3d(0, 0, 0);
+}
+
+.rt-stage[data-highlight="delivery"] .rt-parcel {
+  animation: rt-deliver 2.2s cubic-bezier(0.45, 0.05, 0.25, 1) 0.1s both;
+}
+
+@keyframes rt-deliver {
+  0% { transform: translate3d(0, 0, 38px) scale3d(0.01, 0.01, 0.01); }
+  18% { transform: translate3d(0, 0, 58px) scale3d(1, 1, 1); }
+  80% { transform: translate3d(0, calc(var(--rt-r) * 0.58), 30px) scale3d(1, 1, 1); }
+  100% { transform: translate3d(0, calc(var(--rt-r) * 0.58), 0) scale3d(1, 1, 1); }
+}
+
+/* ---------- walkthrough copy ---------- */
+
+.rt-steps {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.7s cubic-bezier(0.22, 0.8, 0.2, 1), opacity 0.4s ease;
+}
+
+.rt-steps[data-open="false"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.rt-steps > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.rt-copy-in {
+  animation: rt-copy-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes rt-copy-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.rt-dot {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 3px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.rt-dot > span {
+  position: relative;
+  display: block;
+  width: 6px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.25);
+  transition: width 0.35s ease, background-color 0.2s ease;
+}
+
+.rt-dot:hover > span {
+  background: rgb(255 255 255 / 0.5);
+}
+
+.rt-dot[aria-current="step"] > span {
+  width: 30px;
+}
+
+.rt-dot-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--rt-ember), var(--rt-coral));
+  transform-origin: 0 50%;
+  animation: rt-dot-fill linear both;
+}
+
+.rt-stage[data-paused="true"] .rt-dot-fill {
+  animation-play-state: paused;
+}
+
+@keyframes rt-dot-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-stage *,
+  .rt-stage *::before,
+  .rt-stage *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .rt-viewport {
+    cursor: default;
+  }
+}
+
+/* Compact scenes never grow to the walkthrough size, so they can afford a
+   slightly larger resting table. Placed last so it wins over the rules above. */
+.rt-stage[data-compact="true"] .rt-viewport {
+  height: calc(var(--rt-r) * 1.1 + 76px);
+}
+.rt-stage[data-compact="true"] .rt-scale {
+  transform: scale(0.88);
+}

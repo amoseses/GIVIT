@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { AlertTriangle, ExternalLink, Gift, Send, Sparkles, Star, ThumbsDown, ThumbsUp, Wand2, UserRound } from "lucide-react";
+import { AlertTriangle, ExternalLink, Gift, Send, Star, ThumbsDown, ThumbsUp, Wand2, UserRound } from "lucide-react";
+import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { Link } from "wouter";
 import { WishlistButton } from "@/components/product/wishlist-button";
 import { recommendGifts, toGiftResult, EMPTY_CONTEXT, type GiftRecommendResult, type ParsedContext } from "@/lib/gift-recommend";
@@ -232,7 +233,7 @@ function GiftCard({ result, index, onItemFeedback }: { result: GiftResult; index
           <div className="absolute right-2 top-2 rounded-full bg-black/85 px-2 py-1 font-mono text-[10px] font-bold text-givit-coral shadow-sm">Sale</div>
         ) : null}
         <div className="absolute bottom-2 left-2 right-2">
-          <p className="flex items-center gap-1 line-clamp-1 rounded-lg bg-black/60 px-2 py-1 text-[10px] text-white/90 backdrop-blur-sm"><Sparkles className="h-2.5 w-2.5 shrink-0" /> {result.match_reason}</p>
+          <p className="flex items-center gap-1 line-clamp-1 rounded-lg bg-black/60 px-2 py-1 text-[10px] text-white/90 backdrop-blur-sm"><RibbonBow className="h-2.5 w-2.5 shrink-0" /> {result.match_reason}</p>
         </div>
       </div>
       <div className="p-3">
@@ -747,7 +748,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
               onClick={() => sendMessage(buildQuestionnairePrompt(form))}
               className="flex h-11 items-center justify-center gap-2 rounded-full bg-givit-ember text-sm font-bold text-white transition hover:bg-givit-ember-hover"
             >
-              Run the brief <Sparkles className="h-4 w-4" />
+              Run the brief <RibbonBow className="h-4 w-4" />
             </button>
           </div>
         </aside>
