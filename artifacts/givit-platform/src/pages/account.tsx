@@ -923,6 +923,12 @@ export default function AccountPage() {
                 className={inputClass}
               />
             </Field>
+            {/* Changing it here needs the current password; this is the way
+                out for someone who no longer knows it. */}
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Don't remember it?{" "}
+              <Link href="/forgot-password" className="givit-link font-semibold">Reset it by email</Link>
+            </p>
             <Field label="New password" htmlFor="account-new-password" hint="At least 8 characters.">
               <input
                 id="account-new-password"
