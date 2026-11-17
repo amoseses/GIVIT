@@ -149,14 +149,22 @@ export const MEMBERSHIP_TIERS = {
   member: { id: "member", label: "GIVIT Member", amountCents: 699, monthlyCredits: 40 },
 };
 
-export async function createMembershipCheckoutSession(stripe, userId, userEmail, tierId) {
+// customerId must be the user's stored profiles.stripe_customer_id (see
+// getOrCreateStripeCustomer in payments.mjs), NOT just an email: with
+// customer_email Stripe mints a brand-new customer nobody recorded, and
+// every subscription/invoice webhook after that looks up a profile by
+// customer id and finds nothing -- a paid membership that never activates.
+// subscription_data.metadata is the belt-and-braces half: it rides along
+// on the subscription (and its invoices), so the user can still be
+// resolved even if the customer-id lookup ever misses.
+export async function createMembershipCheckoutSession(stripe, userId, customerId, tierId) {
   const tier = MEMBERSHIP_TIERS[tierId];
   if (!tier) throw new Error(`Unknown membership tier: ${tierId}`);
 
   const appUrl = resolveAppUrl();
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    customer_email: userEmail,
+    customer: customerId,
     line_items: [
       {
         price_data: {
@@ -171,8 +179,31 @@ export async function createMembershipCheckoutSession(stripe, userId, userEmail,
     success_url: `${appUrl}/account?membership=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}/account?membership=cancelled`,
     metadata: { source: "givit_membership", user_id: userId, tier_id: tierId },
+    subscription_data: { metadata: { source: "givit_membership", user_id: userId, tier_id: tierId } },
   });
   return session;
+}
+
+// Stripe customer id -> our user id, with the subscription's own metadata
+// as the fallback (see createMembershipCheckoutSession above).
+async function resolveMembershipUserId(customerId, metadataUserId) {
+  if (customerId) {
+    const rows = await restFetch(`profiles?stripe_customer_id=eq.${encodeURIComponent(customerId)}&select=id`);
+    if (rows?.[0]?.id) return rows[0].id;
+  }
+  if (metadataUserId && /^[0-9a-f-]{36}$/i.test(metadataUserId)) return metadataUserId;
+  return null;
+}
+
+// Newer Stripe API versions moved the billing period off the subscription
+// and onto its items, and moved an invoice's subscription link under
+// invoice.parent -- read both shapes rather than pin an API version.
+function subscriptionPeriodEnd(subscription) {
+  return subscription.current_period_end ?? subscription.items?.data?.[0]?.current_period_end ?? null;
+}
+export function invoiceSubscriptionId(invoice) {
+  const sub = invoice.subscription ?? invoice.parent?.subscription_details?.subscription ?? null;
+  return typeof sub === "string" ? sub : sub?.id ?? null;
 }
 
 // Mirrors a subscription's current state onto profiles -- called from
@@ -180,14 +211,15 @@ export async function createMembershipCheckoutSession(stripe, userId, userEmail,
 // customer id (not user id) since that's all the webhook payload reliably
 // carries for every one of those event types.
 export async function syncMembershipFromSubscription(subscription) {
-  const rows = await restFetch(`profiles?stripe_customer_id=eq.${encodeURIComponent(subscription.customer)}&select=id`);
-  const userId = rows?.[0]?.id;
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+  const userId = await resolveMembershipUserId(customerId, subscription.metadata?.user_id);
   if (!userId) {
-    console.error("syncMembershipFromSubscription: no profile for Stripe customer", subscription.customer);
-    return;
+    console.error("syncMembershipFromSubscription: no profile for Stripe customer", customerId);
+    return null;
   }
   const tierId = subscription.metadata?.tier_id ?? (subscription.status === "canceled" ? null : "member");
   const active = subscription.status === "active" || subscription.status === "trialing";
+  const periodEnd = subscriptionPeriodEnd(subscription);
   await restFetch(`profiles?id=eq.${userId}`, {
     method: "PATCH",
     headers: { Prefer: "return=minimal" },
@@ -195,11 +227,10 @@ export async function syncMembershipFromSubscription(subscription) {
       membership_tier: active ? tierId : null,
       membership_status: subscription.status,
       stripe_membership_subscription_id: subscription.id,
-      membership_current_period_end: subscription.current_period_end
-        ? new Date(subscription.current_period_end * 1000).toISOString()
-        : null,
+      membership_current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
     }),
   });
+  return { userId, status: subscription.status, tier: active ? tierId : null };
 }
 
 // Grants one month's bonus credits for a paid invoice -- covers both the
@@ -208,17 +239,50 @@ export async function syncMembershipFromSubscription(subscription) {
 // purchases are: grant_credits() rejects a repeat insert for an invoice
 // id it's already seen.
 export async function grantMembershipCreditsForInvoice(invoice) {
-  const tierId = invoice.subscription_details?.metadata?.tier_id ?? invoice.lines?.data?.[0]?.metadata?.tier_id ?? "member";
+  const subMeta = invoice.subscription_details?.metadata ?? invoice.parent?.subscription_details?.metadata ?? {};
+  const tierId = subMeta.tier_id ?? invoice.lines?.data?.[0]?.metadata?.tier_id ?? "member";
   const tier = MEMBERSHIP_TIERS[tierId];
   if (!tier) {
     console.error("grantMembershipCreditsForInvoice: unknown tier", tierId);
     return;
   }
-  const rows = await restFetch(`profiles?stripe_customer_id=eq.${encodeURIComponent(invoice.customer)}&select=id`);
-  const userId = rows?.[0]?.id;
+  const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+  const userId = await resolveMembershipUserId(customerId, subMeta.user_id);
   if (!userId) {
-    console.error("grantMembershipCreditsForInvoice: no profile for Stripe customer", invoice.customer);
+    console.error("grantMembershipCreditsForInvoice: no profile for Stripe customer", customerId);
     return;
   }
   await grantCredits(userId, tier.monthlyCredits, "membership_monthly", invoice.id);
+}
+
+// Pulls the truth straight from Stripe for one user and applies it:
+// membership status onto the profile, plus a credit grant for every paid
+// membership invoice (grant_credits is idempotent per invoice id, so
+// re-running this never double-grants). Called when Checkout redirects
+// back to /account and whenever the account page loads for someone with
+// a Stripe customer -- which means membership works end to end even if
+// the subscription/invoice webhook events were never subscribed to in
+// the Stripe dashboard, or one was dropped. The webhook is the fast path;
+// this is the one that can't be misconfigured.
+export async function reconcileMembership(stripe, userId) {
+  const rows = await restFetch(`profiles?id=eq.${userId}&select=stripe_customer_id`);
+  const customerId = rows?.[0]?.stripe_customer_id;
+  if (!customerId) return { status: null, tier: null };
+
+  const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
+  const ours = subs.data.filter((sub) => sub.metadata?.source === "givit_membership");
+  if (ours.length === 0) return { status: null, tier: null };
+  // A live subscription wins over an old cancelled one; otherwise newest.
+  const isLive = (sub) => sub.status === "active" || sub.status === "trialing";
+  const subscription = ours.find(isLive) ?? ours.sort((a, b) => b.created - a.created)[0];
+  const synced = await syncMembershipFromSubscription(subscription);
+
+  const invoices = await stripe.invoices.list({ customer: customerId, subscription: subscription.id, status: "paid", limit: 12 });
+  const tier = MEMBERSHIP_TIERS[subscription.metadata?.tier_id ?? "member"];
+  if (tier) {
+    for (const invoice of invoices.data) {
+      await grantCredits(userId, tier.monthlyCredits, "membership_monthly", invoice.id);
+    }
+  }
+  return { status: synced?.status ?? subscription.status, tier: synced?.tier ?? null };
 }

@@ -105,7 +105,15 @@ export function NotificationSettingsCard({
     try {
       const res = await authedFetch("/api/cron/dispatch-notifications?webhook=send-test-sms", { method: "POST" });
       const data = await res.json().catch(() => ({}));
-      setSmsMessage(res.ok ? "Test text sent, check your phone." : data.error || "Couldn't send that text.");
+      // SNS "accepting" a message isn't delivery (a sandboxed AWS account
+      // drops it silently), so don't promise a text arrived on that path.
+      setSmsMessage(
+        !res.ok
+          ? data.error || "Couldn't send that text."
+          : data.provider === "sns"
+            ? "Request accepted, but texting isn't fully set up yet, so it may not arrive."
+            : "Test text sent, check your phone.",
+      );
     } catch (err: any) {
       setSmsMessage(err.message || "Couldn't send that text.");
     } finally {

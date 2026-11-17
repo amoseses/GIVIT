@@ -31,15 +31,33 @@ export type CreditPackId = (typeof CREDIT_PACKS)[number]["id"];
 // Display copy for membership; authoritative pricing lives in
 // MEMBERSHIP_TIERS in server/api-lib/credits.mjs -- keep in sync.
 // $6.99/mo for 40 credits, ~28% cheaper per credit than the best
-// one-time pack -- see that file's comment for the full reasoning. Still
-// behind VITE_ENABLE_MEMBERSHIP (see the account page and top banner)
-// until it's actually turned on -- this constant existing doesn't expose
-// it anywhere by itself.
+// one-time pack -- see that file's comment for the full reasoning.
 export const MEMBERSHIP_TIERS = [
   { id: "member", label: "GIVIT Member", priceCents: 699, monthlyCredits: 40 },
 ] as const;
 export type MembershipTierId = (typeof MEMBERSHIP_TIERS)[number]["id"];
+// Still behind VITE_ENABLE_MEMBERSHIP=true: the checkout/sync backend is
+// fixed, but the account page doesn't yet call syncMembership() when
+// Checkout redirects back, and no real subscription has been run end to
+// end. Turn it on only after both.
 export const MEMBERSHIP_ENABLED = import.meta.env.VITE_ENABLE_MEMBERSHIP === "true";
+export const MEMBERSHIP_PRICE_LABEL = `$${(MEMBERSHIP_TIERS[0].priceCents / 100).toFixed(2)}`;
+// What the same credits cost bought as the best one-time pack -- the
+// honest basis for the "save N%" line, derived rather than hard-coded so
+// it can't drift from the real prices above.
+const bestPack = CREDIT_PACKS.reduce<(typeof CREDIT_PACKS)[number]>((a, b) => (a.priceCents / a.credits <= b.priceCents / b.credits ? a : b), CREDIT_PACKS[0]);
+export const MEMBERSHIP_SAVINGS_PERCENT = Math.round(
+  (1 - MEMBERSHIP_TIERS[0].priceCents / MEMBERSHIP_TIERS[0].monthlyCredits / (bestPack.priceCents / bestPack.credits)) * 100,
+);
+export const MEMBERSHIP_PERKS = [
+  `${MEMBERSHIP_TIERS[0].monthlyCredits} credits every month, added automatically`,
+  `About ${Math.floor(MEMBERSHIP_TIERS[0].monthlyCredits / 10)} AutoGifts a month, handled end to end`,
+  `${MEMBERSHIP_SAVINGS_PERCENT}% cheaper per credit than buying packs`,
+  "Cancel any time, and credits you have stay yours",
+] as const;
+export function isActiveMember(status: string | null | undefined) {
+  return status === "active" || status === "trialing";
+}
 
 // Fired after anything that changes the balance (a spend, a purchase) so
 // the header badge can refetch instead of showing a stale number until
@@ -130,10 +148,10 @@ export async function startCreditCheckout(packId: CreditPackId): Promise<string 
 // subscription/webhook plumbing already lives.
 export async function startMembershipCheckout(tierId: MembershipTierId): Promise<string | null> {
   try {
-    const res = await authedFetch("/api/stripe/setup-intent?action=membership_checkout", {
-      method: "POST",
-      body: JSON.stringify({ tierId }),
-    });
+    // Tier travels in the query string: that function runs with body
+    // parsing off (Stripe webhook signatures need the raw bytes), so a
+    // JSON body is never read there.
+    const res = await authedFetch(`/api/stripe/setup-intent?action=membership_checkout&tier=${encodeURIComponent(tierId)}`, { method: "POST" });
     if (!res) return "Sign in to become a member.";
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.url) return data?.error || "Couldn't start membership checkout -- try again.";
@@ -141,6 +159,23 @@ export async function startMembershipCheckout(tierId: MembershipTierId): Promise
     return null;
   } catch {
     return "Couldn't start membership checkout -- check your connection and try again.";
+  }
+}
+
+// Asks the server to re-read this user's subscription from Stripe and
+// apply it (status + any monthly credits not yet granted). Used when
+// Checkout redirects back, so membership activates even if the webhook
+// is slow or was never subscribed to those events.
+export async function syncMembership(): Promise<{ status: string | null; tier: string | null } | null> {
+  try {
+    const res = await authedFetch("/api/stripe/setup-intent?action=membership_sync", { method: "POST" });
+    if (!res || !res.ok) return null;
+    const data = await res.json().catch(() => null);
+    if (!data?.ok) return null;
+    notifyCreditsChanged();
+    return { status: data.status ?? null, tier: data.tier ?? null };
+  } catch {
+    return null;
   }
 }
 

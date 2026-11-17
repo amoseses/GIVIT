@@ -12,8 +12,10 @@
 // this existed, "Charge saved card" in /admin only flipped a status flag).
 // GET (?paymentMethodId=) = look up the resulting card's brand/last4 --
 // Stripe.js deliberately never hands that back to the browser itself.
-// POST ?action=membership_checkout {tierId} = starts a recurring
+// POST ?action=membership_checkout&tier= = starts a recurring
 // membership subscription (see MEMBERSHIP_TIERS in credits.mjs).
+// POST ?action=membership_sync = pull this user's membership state (and
+// any ungranted monthly credits) straight from Stripe.
 // POST ?action=stripe_webhook also now handles customer.subscription.*
 // and invoice.payment_succeeded to keep membership state + its monthly
 // credit bonus in sync.
@@ -21,7 +23,7 @@ import { getUserFromRequest } from "../../server/api-lib/auth.mjs";
 import { getOrCreateStripeCustomer, getPaymentMethodSummary } from "../../server/api-lib/payments.mjs";
 import { getStripe } from "../../server/api-lib/stripe.mjs";
 import { restFetch } from "../../server/api-lib/supabase-rest.mjs";
-import { grantCredits, grantCreditsForPaidSession, hasGrantedForPaymentIntent, createMembershipCheckoutSession, syncMembershipFromSubscription, grantMembershipCreditsForInvoice } from "../../server/api-lib/credits.mjs";
+import { grantCredits, grantCreditsForPaidSession, hasGrantedForPaymentIntent, createMembershipCheckoutSession, syncMembershipFromSubscription, grantMembershipCreditsForInvoice, invoiceSubscriptionId, reconcileMembership } from "../../server/api-lib/credits.mjs";
 
 // Stripe signs the exact raw bytes of the webhook body, so Vercel's JSON
 // body parsing has to be off for this file. Safe because none of the other
@@ -43,11 +45,12 @@ function safeStripeErrorMessage(error: any, fallback: string): string {
   return fallback;
 }
 
-// POST ?action=membership_checkout {tierId} = starts a recurring Stripe
+// POST ?action=membership_checkout&tier=member = starts a recurring Stripe
 // Checkout for a membership tier (MEMBERSHIP_TIERS in credits.mjs). The
-// subscription + invoice webhooks below do the rest -- no success-page
-// confirm step like credit packs need, since the first
-// invoice.payment_succeeded webhook grants the initial month's bonus too.
+// tier comes from the query string, not a JSON body: bodyParser is off
+// for this whole file (see config above), so req.body is never populated
+// here -- reading it is what made every membership checkout fail with
+// "Missing tierId".
 async function startMembershipCheckout(req: any, res: any) {
   try {
     const user = await getUserFromRequest(req);
@@ -55,15 +58,38 @@ async function startMembershipCheckout(req: any, res: any) {
       res.status(401).json({ error: "Not signed in." });
       return;
     }
-    const { tierId } = req.body ?? {};
-    if (typeof tierId !== "string") {
-      res.status(400).json({ error: "Missing tierId." });
+    const tierId = typeof req.query?.tier === "string" ? req.query.tier : "member";
+    // Already subscribed? Don't open a second Checkout -- two active
+    // subscriptions would bill the same person twice a month.
+    const stripe = getStripe();
+    const current = await reconcileMembership(stripe, user.id);
+    if (current.status === "active" || current.status === "trialing") {
+      res.status(409).json({ error: "You're already a GIVIT Member.", alreadyMember: true });
       return;
     }
-    const session = await createMembershipCheckoutSession(getStripe(), user.id, user.email, tierId);
+    const customerId = await getOrCreateStripeCustomer(user.id, user.email);
+    const session = await createMembershipCheckoutSession(stripe, user.id, customerId, tierId);
     res.status(200).json({ url: session.url });
   } catch (error: any) {
     res.status(500).json({ error: safeStripeErrorMessage(error, "Couldn't start membership checkout. Please try again shortly.") });
+  }
+}
+
+// POST ?action=membership_sync = re-reads this user's subscription from
+// Stripe and applies it (status + any ungranted monthly credits). See
+// reconcileMembership in credits.mjs for why this exists alongside the
+// webhook.
+async function syncMembership(req: any, res: any) {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      res.status(401).json({ error: "Not signed in." });
+      return;
+    }
+    const result = await reconcileMembership(getStripe(), user.id);
+    res.status(200).json({ ok: true, ...result });
+  } catch (error: any) {
+    res.status(500).json({ error: safeStripeErrorMessage(error, "Couldn't check your membership. Please try again shortly.") });
   }
 }
 
@@ -280,7 +306,7 @@ async function handleStripeWebhook(req: any, res: any) {
       await syncMembershipFromSubscription(event.data.object);
     } else if (event.type === "invoice.payment_succeeded") {
       const invoice = event.data.object;
-      if (invoice.subscription) await grantMembershipCreditsForInvoice(invoice);
+      if (invoiceSubscriptionId(invoice)) await grantMembershipCreditsForInvoice(invoice);
     }
     res.status(200).json({ received: true });
   } catch (error: any) {
@@ -295,6 +321,7 @@ export default async function handler(req: any, res: any) {
   if (req.method === "POST" && req.query?.action === "stripe_webhook") return handleStripeWebhook(req, res);
   if (req.method === "POST" && req.query?.action === "charge_order") return chargeAutoGiftOrder(req, res);
   if (req.method === "POST" && req.query?.action === "membership_checkout") return startMembershipCheckout(req, res);
+  if (req.method === "POST" && req.query?.action === "membership_sync") return syncMembership(req, res);
   if (req.method === "POST") return startSetupIntent(req, res);
   if (req.method === "GET") return paymentMethodSummary(req, res);
   res.status(405).json({ error: "Method not allowed" });

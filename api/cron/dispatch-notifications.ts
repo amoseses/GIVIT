@@ -237,8 +237,11 @@ async function handleSendTestSms(req: any, res: any) {
       res.status(400).json({ error: "Turn on text reminders first." });
       return;
     }
-    await sendSms(profile.phone, "This is a test text from GIVIT. Your real AutoGift reminders will look like this. Reply STOP to opt out.");
-    res.status(200).json({ ok: true });
+    const sent = await sendSms(profile.phone, "This is a test text from GIVIT. Your real AutoGift reminders will look like this. Reply STOP to opt out.");
+    // provider lets the client be honest: Twilio confirms it queued the
+    // message; SNS only confirms it accepted the request, which in a
+    // sandboxed account does not mean a text was actually delivered.
+    res.status(200).json({ ok: true, provider: sent?.provider ?? null });
   } catch (error: any) {
     console.error("dispatch-notifications: test SMS failed", error?.message);
     res.status(502).json({ error: error?.message || "Couldn't send that text right now." });
