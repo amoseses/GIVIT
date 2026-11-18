@@ -39,8 +39,8 @@ export function HolidayWreath({ className = "" }: { className?: string }) {
     <svg viewBox="0 0 48 48" className={className} fill="none" aria-hidden="true">
       <defs>
         <linearGradient id="wreath-bow" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#ff5a3d" />
-          <stop offset="1" stopColor="#ff2f87" />
+          <stop offset="0" stopColor="#e5593f" />
+          <stop offset="1" stopColor="#e0467f" />
         </linearGradient>
       </defs>
       {OUTER.map((leaf, i) => (

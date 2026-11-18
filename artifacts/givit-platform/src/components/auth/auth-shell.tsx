@@ -8,8 +8,8 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
   return (
     <div className="grid min-h-[calc(100vh-160px)] lg:grid-cols-2">
       <div className="relative hidden overflow-hidden bg-black p-10 lg:flex lg:flex-col lg:justify-between">
-        <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 animate-drift rounded-full bg-givit-ember/25 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-64 w-64 animate-drift-slow rounded-full bg-givit-coral/20 blur-3xl" />
+        <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 animate-drift rounded-full bg-givit-ember/15 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-64 w-64 animate-drift-slow rounded-full bg-givit-coral/12 blur-3xl" />
 
         <Link href="/" className="relative flex items-center gap-2">
           <img src="/Screenshot 2026-06-23 095149.png" alt="GIVIT" className="h-9 w-9 rounded-lg object-cover" />

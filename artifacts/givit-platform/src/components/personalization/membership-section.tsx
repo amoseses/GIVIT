@@ -33,8 +33,8 @@ export function MembershipSection({ tone = "app" }: { tone?: "dark" | "app" }) {
             dark ? "border border-white/10 bg-white/[0.04]" : "border border-givit-ember/25 bg-card shadow-lg shadow-givit-ember/10"
           }`}
         >
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 animate-drift rounded-full bg-givit-ember/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-28 -left-20 h-64 w-64 animate-drift-slow rounded-full bg-givit-coral/15 blur-3xl" />
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 animate-drift rounded-full bg-givit-ember/12 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-28 -left-20 h-64 w-64 animate-drift-slow rounded-full bg-givit-coral/9 blur-3xl" />
 
           <div className="relative">
             <p className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest ${dark ? "text-givit-coral" : "text-givit-ember"}`}>

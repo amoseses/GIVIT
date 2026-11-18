@@ -28,7 +28,7 @@ type Particle = {
 
 const PARTICLE_COUNT = 55;
 const BOW_FRACTION = 0.16; // most particles are ribbon streaks; a few are small bow accents
-const EMBER_RGB = "255, 90, 61"; // --givit-ember
+const EMBER_RGB = "229, 89, 63"; // --givit-ember
 const AMBER_RGB = "255, 176, 0"; // --chart-3
 
 // A gradient stroke (transparent -> bright -> transparent along the

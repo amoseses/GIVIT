@@ -74,8 +74,8 @@
 }
 
 :root {
-  --font-sans: "Inter", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Inter", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --background: #faf9f7;
   --foreground: #1a1208;
@@ -84,7 +84,7 @@
   --popover: #ffffff;
   --popover-foreground: #1a1208;
 
-  --primary: #ff5a3d;
+  --primary: #e5593f;
   --primary-foreground: #ffffff;
 
   --secondary: #f5f1ec;
@@ -102,12 +102,12 @@
   --success: #059669;
   --border: #e8e2d8;
   --input: #e8e2d8;
-  --ring: #ff5a3d;
+  --ring: #e5593f;
 
   --givit-ink: #1a1208;
-  --givit-ember: #ff5a3d;
-  --givit-ember-hover: #e84426;
-  --givit-coral: #ff2f87;
+  --givit-ember: #e5593f;
+  --givit-ember-hover: #cf4a31;
+  --givit-coral: #e0467f;
   --givit-sand: #fdf3e4;
   --givit-mist: #ffffff;
   --givit-page: #faf9f7;
@@ -119,8 +119,8 @@
      all of that. */
   --givit-teal: #0e7490;
 
-  --chart-1: #ff5a3d;
-  --chart-2: #ff2f87;
+  --chart-1: #e5593f;
+  --chart-2: #e0467f;
   --chart-3: #ffb000;
   --chart-4: #a16207;
   --chart-5: #6b6558;
@@ -128,12 +128,12 @@
 
   --sidebar: #ffffff;
   --sidebar-foreground: #1a1208;
-  --sidebar-primary: #ff5a3d;
+  --sidebar-primary: #e5593f;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f5f1ec;
   --sidebar-accent-foreground: #7c3010;
   --sidebar-border: #e8e2d8;
-  --sidebar-ring: #ff5a3d;
+  --sidebar-ring: #e5593f;
 }
 
 .dark {
@@ -143,7 +143,7 @@
   --card-foreground: #f3f0f5;
   --popover: #18171d;
   --popover-foreground: #f3f0f5;
-  --primary: #ff5a3d;
+  --primary: #e5593f;
   --primary-foreground: #150b08;
   --secondary: #1f1e24;
   --secondary-foreground: #f3f0f5;
@@ -155,23 +155,23 @@
   --success: #34d399;
   --border: #29272d;
   --input: #29272d;
-  --ring: #ff5a3d;
+  --ring: #e5593f;
   --givit-ink: #f3f0f5;
-  --givit-ember: #ff5a3d;
-  --givit-ember-hover: #ff7a52;
-  --givit-coral: #ff2f87;
+  --givit-ember: #e5593f;
+  --givit-ember-hover: #f07a58;
+  --givit-coral: #e0467f;
   --givit-sand: #241a12;
   --givit-mist: #18171d;
   --givit-page: #121116;
   --givit-teal: #22d3ee;
   --sidebar: #18171d;
   --sidebar-foreground: #f3f0f5;
-  --sidebar-primary: #ff5a3d;
+  --sidebar-primary: #e5593f;
   --sidebar-primary-foreground: #150b08;
   --sidebar-accent: #1f1e24;
   --sidebar-accent-foreground: #ffd9c2;
   --sidebar-border: #29272d;
-  --sidebar-ring: #ff5a3d;
+  --sidebar-ring: #e5593f;
 }
 
 @utility container {
@@ -205,8 +205,8 @@
   .dark body {
     background-image:
       radial-gradient(circle at 1px 1px, color-mix(in srgb, #ffffff 6%, transparent) 1px, transparent 0),
-      radial-gradient(1100px 560px at 8% -12%, rgb(255 90 61 / 0.11), transparent 60%),
-      radial-gradient(900px 520px at 105% 0%, rgb(255 47 135 / 0.07), transparent 55%);
+      radial-gradient(1100px 560px at 8% -12%, rgb(229 89 63 / 0.11), transparent 60%),
+      radial-gradient(900px 520px at 105% 0%, rgb(224 70 127 / 0.07), transparent 55%);
     background-size: 28px 28px, auto, auto;
     background-repeat: repeat, no-repeat, no-repeat;
   }
@@ -215,17 +215,13 @@
   }
   h1, h2, h3, .font-display {
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.015em;
   }
-  /* Every "eyebrow" label sitewide (About, Calendar, People, AutoGift,
-     Gift AI's own labels, footer column headings, etc.) already shares
-     one de facto convention: uppercase + wide letter-tracking. Rather
-     than hand-editing 40+ call sites, this switches that whole existing
-     convention onto the technical monospace face -- it's what turns a
-     handful of touched pages into a site-wide system instead of one
-     redesigned corner. */
-  [class*="tracking-wide"], [class*="tracking-["] {
-    font-family: var(--font-mono), monospace;
+  /* Eyebrow labels (uppercase + wide tracking) used to be forced onto the
+     monospace face sitewide, which is most of what made the type read as
+     generic "AI dashboard." They now stay in the one sans family. */
+  [class*="tracking-wide"] {
+    letter-spacing: 0.08em;
   }
 }
 
@@ -255,7 +251,7 @@
   }
 
   .givit-glow {
-    box-shadow: 0 0 0 1px rgb(255 90 61 / 0.25), 0 8px 32px -8px rgb(255 90 61 / 0.35), 0 8px 32px -8px rgb(255 47 135 / 0.2);
+    box-shadow: 0 0 0 1px rgb(229 89 63 / 0.18), 0 6px 24px -8px rgb(229 89 63 / 0.28);
   }
 
   .givit-link {
@@ -275,7 +271,7 @@
   }
 
   .price-tag {
-    @apply font-mono font-semibold tabular-nums text-givit-ink;
+    @apply font-semibold tabular-nums text-givit-ink;
   }
 
   /* A live status dot, not a static bullet -- the ping ring reads as
@@ -460,8 +456,8 @@
 
 /* Scroll progress rail (landing page): the active section's dot. */
 @keyframes rail-dot-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(255 90 61 / 0.55); }
-  50% { box-shadow: 0 0 0 6px rgb(255 90 61 / 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgb(229 89 63 / 0.55); }
+  50% { box-shadow: 0 0 0 6px rgb(229 89 63 / 0); }
 }
 .rail-dot-active { animation: rail-dot-pulse 2.2s ease-out infinite; }
 
@@ -506,3 +502,9 @@
   .route-ribbon { animation: none; opacity: 0; }
   .eyebrow-dots::after { animation: none; }
 }
+
+/* Headings: one calm weight instead of bold-everywhere. Unlayered on
+   purpose -- it has to win over the font-bold utilities on individual
+   headings, which is what made the type feel heavy. */
+h1, h2, h3 { font-weight: 600; }
+h1 { letter-spacing: -0.025em; }

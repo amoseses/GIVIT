@@ -70,7 +70,7 @@ function StoryScroll() {
   return (
     <section id="story" ref={ref} className="relative bg-black" style={{ height: `${STORY_STEPS.length * 90}vh` }}>
       <div className="sticky top-0 flex h-screen items-center overflow-hidden">
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-givit-ember/10 blur-3xl" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-givit-ember/6 blur-3xl" />
         <div className="container relative grid items-center gap-10 md:grid-cols-2 md:gap-16">
           <div className="order-2 flex min-h-[220px] flex-col justify-center text-center md:order-1 md:text-left">
             <div key={activeStep} className="slide-up mx-auto md:mx-0">
@@ -205,7 +205,7 @@ export default function LandingPage() {
 
       <div className="slide-up mb-10 flex flex-col items-center gap-3" style={{ animationDelay: "0ms" }}>
         <div className="relative">
-          <div className="animate-pulse-ring pointer-events-none absolute inset-0 rounded-2xl bg-givit-ember/25 blur-xl" />
+          <div className="animate-pulse-ring pointer-events-none absolute inset-0 rounded-2xl bg-givit-ember/15 blur-xl" />
           <img src="/Screenshot 2026-06-23 095149.png" alt="GIVIT" className="animate-float relative h-20 w-20 rounded-2xl object-cover shadow-2xl md:h-24 md:w-24" />
         </div>
         <span className="font-serif text-3xl font-bold tracking-tight">
@@ -292,7 +292,7 @@ export default function LandingPage() {
     <MembershipSection tone="dark" />
 
     <div id="begin" className="relative flex flex-col items-center gap-6 overflow-hidden bg-black px-6 py-32 text-center text-white">
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 animate-drift rounded-full bg-givit-ember/12 blur-3xl" />
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 animate-drift rounded-full bg-givit-ember/7 blur-3xl" />
       <Reveal variant="blur" className="relative">
         <h2 className="mx-auto max-w-2xl text-4xl font-light leading-tight tracking-tight md:text-6xl">
           Ready to never send a <span className="givit-gradient-text font-semibold">bad gift</span> again?

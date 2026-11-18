@@ -78,13 +78,13 @@ function drawSnowflake(ctx: CanvasRenderingContext2D, f: Flake, x: number, rgb: 
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.stroke();
     // The ribbon round the bauble: one vertical band, slightly curved.
-    ctx.strokeStyle = `rgba(255, 90, 61, ${Math.min(1, alpha * 1.1)})`;
+    ctx.strokeStyle = `rgba(229, 89, 63, ${Math.min(1, alpha * 1.1)})`;
     ctx.beginPath();
     ctx.moveTo(0, -r);
     ctx.quadraticCurveTo(r * 0.45, 0, 0, r);
     ctx.stroke();
     // The bow on top: two loops and a knot.
-    ctx.fillStyle = `rgba(255, 90, 61, ${Math.min(1, alpha * 1.15)})`;
+    ctx.fillStyle = `rgba(229, 89, 63, ${Math.min(1, alpha * 1.15)})`;
     const b = r * 0.62;
     ctx.beginPath();
     ctx.moveTo(0, -r);
@@ -157,12 +157,12 @@ export function SeasonalSnow() {
         f.radius = 8 + Math.random() * 4;
         f.speed = 34 + Math.random() * 16;
         f.drift = 22 + Math.random() * 18;
-        f.opacity = 0.55 + Math.random() * 0.3;
+        f.opacity = 0.4 + Math.random() * 0.25;
       } else if (f.depth === "mid") {
         f.radius = 4.5 + Math.random() * 3;
         f.speed = 20 + Math.random() * 14;
         f.drift = 12 + Math.random() * 14;
-        f.opacity = 0.4 + Math.random() * 0.3;
+        f.opacity = 0.3 + Math.random() * 0.25;
       } else {
         f.radius = 2 + Math.random() * 1.6;
         f.speed = 9 + Math.random() * 9;
@@ -246,10 +246,13 @@ export function SeasonalSnow() {
     };
   }, []);
 
+  // Behind the page (above only the ambient blobs at -z-10). It used to be
+  // z-[60], painted over the header, cards and text -- the reason content
+  // was hard to read. Opaque cards now cover it; it shows in the gaps.
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-[60]"
+      className="pointer-events-none fixed inset-0 -z-[5]"
       aria-hidden="true"
     />
   );

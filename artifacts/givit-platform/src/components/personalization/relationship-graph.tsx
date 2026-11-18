@@ -25,7 +25,7 @@ const EXAMPLE_PEOPLE: GraphPerson[] = [
   { id: "example-6", name: "Sam", relationship: "Coworker", interests: ["board games"], photoUrl: null },
 ];
 const BG = "#0b0b0e";
-const EMBER: [number, number, number] = [255, 90, 61];
+const EMBER: [number, number, number] = [229, 89, 63];
 const CORAL: [number, number, number] = [255, 47, 135];
 const FOCAL = 3.4;
 
@@ -351,7 +351,7 @@ export function RelationshipGraph() {
 
       // Soft light behind the model.
       const glow = ctx!.createRadialGradient(cx, cy, 0, cx, cy, R * 2.2);
-      glow.addColorStop(0, "rgba(255, 90, 61, 0.13)");
+      glow.addColorStop(0, "rgba(229, 89, 63, 0.13)");
       glow.addColorStop(0.5, "rgba(255, 47, 135, 0.05)");
       glow.addColorStop(1, "rgba(255, 47, 135, 0)");
       ctx!.fillStyle = glow;
@@ -454,7 +454,7 @@ export function RelationshipGraph() {
         ctx!.save();
         ctx!.globalAlpha = alpha;
         if (isSelected || isHover) {
-          ctx!.shadowColor = "rgba(255, 90, 61, 0.8)";
+          ctx!.shadowColor = "rgba(229, 89, 63, 0.8)";
           ctx!.shadowBlur = 22;
         }
         roundedRect(ctx!, x, y, half * 2, half * 2, corner);
@@ -478,7 +478,7 @@ export function RelationshipGraph() {
           ctx!.translate(x + half * 1.62, y + half * 0.38);
           ctx!.rotate(Math.PI / 4);
           const band = ctx!.createLinearGradient(-half, 0, half, 0);
-          band.addColorStop(0, "rgb(255, 90, 61)");
+          band.addColorStop(0, "rgb(229, 89, 63)");
           band.addColorStop(1, "rgb(255, 47, 135)");
           ctx!.fillStyle = band;
           ctx!.fillRect(-half, -half * 0.09, half * 2, half * 0.18);
@@ -488,7 +488,7 @@ export function RelationshipGraph() {
         ctx!.save();
         ctx!.globalAlpha = alpha;
         roundedRect(ctx!, x, y, half * 2, half * 2, corner);
-        ctx!.strokeStyle = isSelected ? "rgba(255, 90, 61, 1)" : "rgba(255, 255, 255, 0.22)";
+        ctx!.strokeStyle = isSelected ? "rgba(229, 89, 63, 1)" : "rgba(255, 255, 255, 0.22)";
         ctx!.lineWidth = isSelected ? 1.8 : 1;
         ctx!.stroke();
         ctx!.font = `${isSelected ? 600 : 500} ${isSelected ? 13 : 11.5}px Inter, ui-sans-serif, system-ui, sans-serif`;
@@ -621,7 +621,7 @@ export function RelationshipGraph() {
             step={0.01}
             value={spread}
             onChange={(e) => setSpread(Number(e.target.value))}
-            className="h-1 w-28 cursor-pointer accent-[#ff5a3d]"
+            className="h-1 w-28 cursor-pointer accent-[#e5593f]"
           />
         </label>
 

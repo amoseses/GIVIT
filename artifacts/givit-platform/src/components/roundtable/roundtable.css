@@ -9,8 +9,8 @@
 .rt-stage {
   --rt-r: clamp(104px, 29vw, 168px);
   --rt-tilt: 62deg;
-  --rt-ember: #ff5a3d;
-  --rt-coral: #ff2f87;
+  --rt-ember: #e5593f;
+  --rt-coral: #e0467f;
   --rt-paper: #f3ece4;
   background: linear-gradient(160deg, #0a0a0d 0%, #121116 55%, #16151a 100%);
 }
@@ -39,7 +39,7 @@
 }
 
 .rt-viewport:focus-visible {
-  outline: 1px solid rgb(255 90 61 / 0.7);
+  outline: 1px solid rgb(229 89 63 / 0.7);
   outline-offset: 2px;
   border-radius: 16px;
 }
@@ -88,7 +88,7 @@
 .rt-slab {
   transform: translateZ(-9px);
   background: #060608;
-  box-shadow: inset 0 -2px 0 rgb(255 90 61 / 0.22);
+  box-shadow: inset 0 -2px 0 rgb(229 89 63 / 0.22);
 }
 
 /* The surface does not spin, so its rim light stays put relative to the
@@ -130,7 +130,7 @@
 }
 
 .rt-arcs {
-  filter: drop-shadow(0 0 2.5px rgb(255 90 61 / 0.85));
+  filter: drop-shadow(0 0 2.5px rgb(229 89 63 / 0.85));
 }
 
 .rt-arc {
@@ -339,7 +339,7 @@
   width: calc(var(--bs) * 3.2);
   height: calc(var(--bs) * 3.2);
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(255 170 120 / 0.9) 0%, rgb(255 90 61 / 0.35) 30%, transparent 65%);
+  background: radial-gradient(circle, rgb(255 170 120 / 0.9) 0%, rgb(229 89 63 / 0.35) 30%, transparent 65%);
   opacity: 0;
   transform: translateZ(calc(var(--bh) + 3px)) scale(0.4);
   transition: opacity 0.8s ease, transform 0.9s ease;

@@ -33,7 +33,7 @@ type Props = {
 
 type Particle = { x: number; y: number; z: number; t: number; size: number; tone: number; twinkle: number };
 
-const EMBER = [255, 90, 61];
+const EMBER = [229, 89, 63];
 const CORAL = [255, 47, 135];
 const GOLD = [255, 196, 120];
 

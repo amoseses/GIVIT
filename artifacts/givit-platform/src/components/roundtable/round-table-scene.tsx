@@ -293,8 +293,8 @@ export function RoundTableScene({ seats, steps, eyebrow, title, lede, compact = 
                   <svg className="rt-marks" viewBox="-100 -100 200 200">
                     <defs>
                       <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0" stopColor="#ff5a3d" />
-                        <stop offset="1" stopColor="#ff2f87" />
+                        <stop offset="0" stopColor="#e5593f" />
+                        <stop offset="1" stopColor="#e0467f" />
                       </linearGradient>
                     </defs>
                     <circle className="rt-ring" r="97" />
