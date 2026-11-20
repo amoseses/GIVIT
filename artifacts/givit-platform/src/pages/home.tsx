@@ -103,7 +103,7 @@ export default function HomePage() {
               Never send a <span className="givit-gradient-text font-semibold">bad gift</span> again.
             </h1>
             <p className="mt-4 text-base leading-7 text-muted-foreground">
-              GIVIT remembers everyone you care about, reasons about what they'd actually love, and lines it up before you approve it.
+              GIVIT remembers everyone you care about, finds what they'd actually love, and hunts for the lower price before you approve it.
             </p>
 
             <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">

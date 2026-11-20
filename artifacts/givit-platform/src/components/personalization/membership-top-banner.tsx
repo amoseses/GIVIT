@@ -38,7 +38,7 @@ export function MembershipTopBanner() {
         <p className="flex items-center gap-1.5 text-xs font-medium text-givit-ink sm:text-sm">
           <Crown className="h-3.5 w-3.5 shrink-0 text-givit-ember" />
           <span>
-            <span className="font-semibold">{tier.label}</span>: ${(tier.priceCents / 100).toFixed(2)}/mo for {tier.monthlyCredits} credits every month.
+            <span className="font-semibold">{tier.label}</span>: ${(tier.priceCents / 100).toFixed(2)}/mo. See the cheaper pick on every gift GIVIT finds.
           </span>
           <Link href={user ? "/account#membership" : "/signup?next=/account"} className="font-semibold text-givit-ember underline-offset-2 hover:underline">
             Join now

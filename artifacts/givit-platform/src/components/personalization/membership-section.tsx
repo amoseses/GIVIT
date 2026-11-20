@@ -41,10 +41,10 @@ export function MembershipSection({ tone = "app" }: { tone?: "dark" | "app" }) {
               <Crown className="h-3.5 w-3.5" /> {tier.label}
             </p>
             <h2 className={`mt-3 text-3xl font-light leading-tight tracking-tight md:text-4xl ${dark ? "text-white" : "text-foreground"}`}>
-              Gifting on autopilot, <span className="givit-gradient-text font-semibold">for less.</span>
+              The same gifts, <span className="givit-gradient-text font-semibold">for less.</span>
             </h2>
             <p className={`mt-3 max-w-sm text-sm leading-relaxed ${dark ? "text-white/60" : "text-muted-foreground"}`}>
-              Your Gift AI stays free. Membership is for AutoGift: credits arrive every month, so the gifts you approve just go out.
+              Your Gift AI stays free. Members also see the cheaper pick GIVIT finds for each gift, plus credits every month.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-4">
               <Link

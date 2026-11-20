@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { AlertTriangle, ExternalLink, Gift, Send, Star, ThumbsDown, ThumbsUp, Wand2, UserRound } from "lucide-react";
 import { RibbonBow } from "@/components/ui/givit-glyphs";
+import { Lock } from "lucide-react";
+import { lowestPriceId, savingsPercent, unlockHref, useMemberLock } from "@/components/gift/savings";
 import { Link } from "wouter";
 import { WishlistButton } from "@/components/product/wishlist-button";
 import { recommendGifts, toGiftResult, EMPTY_CONTEXT, type GiftRecommendResult, type ParsedContext } from "@/lib/gift-recommend";
@@ -213,35 +215,47 @@ function TypingIndicator() {
   );
 }
 
-function GiftCard({ result, index, onItemFeedback }: { result: GiftResult; index: number; onItemFeedback: (result: GiftResult, liked: boolean) => void }) {
+function GiftCard({ result, index, onItemFeedback, lowest = false }: { result: GiftResult; index: number; onItemFeedback: (result: GiftResult, liked: boolean) => void; lowest?: boolean }) {
   const [imageSrc, setImageSrc] = useState(result.image_url || productPhotoFallback(result.slug, result.category_slug));
   // Tapping Like/Not this used to give zero visual confirmation — the
   // buttons looked identical before and after a click, so users couldn't
   // tell their feedback registered. This tracks it locally per card.
   const [feedback, setFeedback] = useState<"liked" | "disliked" | null>(null);
   const displayPrice = result.sale_price_cents ?? result.price_cents;
+  // Real saving (list vs sale price) -> tag for everyone, product details for
+  // members only once membership is on.
+  const savings = savingsPercent(result.price_cents, result.sale_price_cents);
+  const { locked, signedIn } = useMemberLock(savings > 0);
 
   return (
     <div className="slide-up givit-panel overflow-hidden transition-transform duration-200 hover:-translate-y-0.5" style={{ animationDelay: `${index * 60}ms`, opacity: 0 }}>
       <div className="relative aspect-[4/3] overflow-hidden bg-givit-sand">
         {result.image_url ? (
-          <img src={imageSrc} alt={result.name} className="h-full w-full object-cover" onError={() => setImageSrc(productPhotoFallback(result.slug, result.category_slug))} />
+          <img src={imageSrc} alt={result.name} className={`h-full w-full object-cover ${locked ? "scale-110 blur-xl" : ""}`} onError={() => setImageSrc(productPhotoFallback(result.slug, result.category_slug))} />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center"><Gift className="h-8 w-8 text-muted-foreground/40" /></div>
         )}
-        {result.sale_price_cents ? (
-          <div className="absolute right-2 top-2 rounded-full bg-black/85 px-2 py-1 font-mono text-[10px] font-bold text-givit-coral shadow-sm">Sale</div>
+        {savings > 0 ? (
+          <div className={`absolute right-2 top-2 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold shadow-sm ${locked ? "bg-givit-ember text-white givit-glow" : "bg-black/85 text-givit-coral"}`}>
+            {locked ? <Lock className="h-3 w-3" /> : null}
+            Found {savings}% lower
+          </div>
+        ) : lowest ? (
+          <div className="absolute right-2 top-2 rounded-full bg-black/85 px-2.5 py-1 text-[11px] font-bold text-givit-coral shadow-sm">Lowest price of these picks</div>
         ) : null}
         <div className="absolute bottom-2 left-2 right-2">
           <p className="flex items-center gap-1 line-clamp-1 rounded-lg bg-black/60 px-2 py-1 text-[10px] text-white/90 backdrop-blur-sm"><RibbonBow className="h-2.5 w-2.5 shrink-0" /> {result.match_reason}</p>
         </div>
       </div>
       <div className="p-3">
-        <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">{result.name}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <p className="font-bold text-givit-ember">{formatMoneyLocal(displayPrice)}</p>
-          {result.sale_price_cents ? <p className="text-xs text-muted-foreground line-through">{formatMoneyLocal(result.price_cents)}</p> : null}
+        <div className={locked ? "pointer-events-none select-none blur-[6px]" : ""} aria-hidden={locked}>
+          <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">{result.name}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <p className="font-bold text-givit-ember">{formatMoneyLocal(displayPrice)}</p>
+            {result.sale_price_cents ? <p className="text-xs text-muted-foreground line-through">{formatMoneyLocal(result.price_cents)}</p> : null}
+          </div>
         </div>
+        {locked ? <p className="mt-1 text-xs font-medium text-muted-foreground">Members see the product and price.</p> : null}
         {result.avg_rating && result.review_count > 0 && (
           <div className="mt-1 flex items-center gap-1">
             <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
@@ -262,16 +276,26 @@ function GiftCard({ result, index, onItemFeedback }: { result: GiftResult; index
           </div>
         )}
         <div className="mt-3 grid gap-2">
-          <Link
-            href={`/products/${result.slug}`}
-            // The +1 behind marketplace "Trending now": what people actually
-            // click out of an AI answer, not what we guessed was popular.
-            onClick={() => trackUserEvent("product_click", { slug: result.slug, source: "gift_ai", position: index })}
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-givit-ember px-3 text-xs font-semibold text-white transition hover:bg-givit-ember-hover"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> View product
-          </Link>
-          <WishlistButton compact item={{ slug: result.slug, name: result.name, href: `/products/${result.slug}`, image: imageSrc, price: formatMoneyLocal(displayPrice) }} />
+          {locked ? (
+            <Link
+              href={unlockHref(signedIn)}
+              onClick={() => trackUserEvent("membership_unlock_click", { source: "gift_ai", savings })}
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-givit-ember px-3 text-xs font-semibold text-white transition hover:bg-givit-ember-hover"
+            >
+              <Lock className="h-3.5 w-3.5" /> Unlock with membership
+            </Link>
+          ) : (
+            <Link
+              href={`/products/${result.slug}`}
+              // The +1 behind marketplace "Trending now": what people actually
+              // click out of an AI answer, not what we guessed was popular.
+              onClick={() => trackUserEvent("product_click", { slug: result.slug, source: "gift_ai", position: index })}
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-givit-ember px-3 text-xs font-semibold text-white transition hover:bg-givit-ember-hover"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> View product
+            </Link>
+          )}
+          {locked ? null : <WishlistButton compact item={{ slug: result.slug, name: result.name, href: `/products/${result.slug}`, image: imageSrc, price: formatMoneyLocal(displayPrice) }} />}
           {feedback ? (
             <div className={`flex h-8 items-center justify-center gap-1.5 rounded-full text-xs font-semibold ${feedback === "liked" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
               {feedback === "liked" ? <ThumbsUp className="h-3.5 w-3.5 fill-current" /> : <ThumbsDown className="h-3.5 w-3.5 fill-current" />}
@@ -795,7 +819,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
                   )}
                   {msg.results && msg.results.length > 0 && (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {msg.results.map((result, idx) => <GiftCard key={result.id} result={result} index={idx} onItemFeedback={handleItemFeedback} />)}
+                      {msg.results.map((result, idx) => <GiftCard key={result.id} result={result} index={idx} onItemFeedback={handleItemFeedback} lowest={lowestPriceId(msg.results!) === result.id} />)}
                       <div className="flex flex-wrap items-center gap-3 border-t border-border/30 pt-3 text-xs text-muted-foreground sm:col-span-2 xl:col-span-3">
                         <span className="font-semibold text-givit-ink">Did these feel right?</span>
                         <button type="button" onClick={() => handleFeedback(msg.results ?? [], true)} className="inline-flex items-center gap-1 rounded-full bg-success/10 px-3 py-1 font-semibold text-success transition hover:bg-success/20"><ThumbsUp className="h-3.5 w-3.5" /> Satisfied</button>
@@ -817,7 +841,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
                             </div>
                             {entry.results.length > 0 ? (
                               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                {entry.results.map((result, idx) => <GiftCard key={result.id} result={result} index={idx} onItemFeedback={handleItemFeedback} />)}
+                                {entry.results.map((result, idx) => <GiftCard key={result.id} result={result} index={idx} onItemFeedback={handleItemFeedback} lowest={lowestPriceId(entry.results) === result.id} />)}
                               </div>
                             ) : (
                               <p className="text-xs text-muted-foreground">No strong match in that budget yet — try raising it a bit.</p>

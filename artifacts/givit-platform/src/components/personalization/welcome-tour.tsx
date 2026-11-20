@@ -6,7 +6,7 @@ import { updateProfile } from "@/lib/supabase/db";
 import { GiftingQuizModal } from "@/components/personalization/gifting-quiz-modal";
 import { AutoGiftOnboardingWizard } from "@/components/autogift/autogift-onboarding-wizard";
 import { SiteTour, type TourStep } from "@/components/personalization/site-tour";
-import { MEMBERSHIP_ENABLED, MEMBERSHIP_PRICE_LABEL, MEMBERSHIP_SAVINGS_PERCENT, MEMBERSHIP_TIERS } from "@/lib/credits/credits";
+import { MEMBERSHIP_ENABLED, MEMBERSHIP_PRICE_LABEL, MEMBERSHIP_TIERS } from "@/lib/credits/credits";
 
 const KEY = "givit-show-welcome-tour";
 
@@ -31,14 +31,14 @@ const TOUR_STEPS: TourStep[] = [
     // "No subscription" stops being true the moment membership is switched
     // on, so the line (and the membership step after it) follow the flag.
     body: MEMBERSHIP_ENABLED
-      ? "That coin badge is for AutoGift only — a few free AutoGifts every year, then small top-up packs when you need more. No surprise charges."
+      ? "Ask it anything, free. Members also see the cheaper pick GIVIT finds for each gift, and the coin badge tracks your monthly credits."
       : "That coin badge is for AutoGift only — a few free AutoGifts every year, then small top-up packs when you need more. No subscription, no surprise charges.",
   },
   ...(MEMBERSHIP_ENABLED
     ? [{
         targetId: "tour-membership",
-        title: "Gift a lot? Membership is cheaper.",
-        body: `${MEMBERSHIP_PRICE_LABEL} a month puts ${MEMBERSHIP_TIERS[0].monthlyCredits} credits in your balance automatically — ${MEMBERSHIP_SAVINGS_PERCENT}% less per credit than packs. Entirely optional, cancel any time.`,
+        title: "Same gifts, for less.",
+        body: `${MEMBERSHIP_PRICE_LABEL} a month unlocks the cheaper pick behind every savings tag, plus ${MEMBERSHIP_TIERS[0].monthlyCredits} credits a month. Optional, cancel any time.`,
       }]
     : []),
   {

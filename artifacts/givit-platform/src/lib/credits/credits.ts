@@ -50,8 +50,8 @@ export const MEMBERSHIP_SAVINGS_PERCENT = Math.round(
   (1 - MEMBERSHIP_TIERS[0].priceCents / MEMBERSHIP_TIERS[0].monthlyCredits / (bestPack.priceCents / bestPack.credits)) * 100,
 );
 export const MEMBERSHIP_PERKS = [
+  "See the cheaper pick behind every savings tag GIVIT finds",
   `${MEMBERSHIP_TIERS[0].monthlyCredits} credits every month, added automatically`,
-  `About ${Math.floor(MEMBERSHIP_TIERS[0].monthlyCredits / 10)} AutoGifts a month, handled end to end`,
   `${MEMBERSHIP_SAVINGS_PERCENT}% cheaper per credit than buying packs`,
   "Cancel any time, and credits you have stay yours",
 ] as const;

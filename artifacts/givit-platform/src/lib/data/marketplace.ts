@@ -386,8 +386,9 @@ function expandIdeas() {
         score: Math.max(70, 82 - (ideaIndex % 6) * 3),
         occasions: [OCCASION_ROTATION[(ideaIndex + productRank) % OCCASION_ROTATION.length]!, OCCASION_ROTATION[(ideaIndex + productRank + 3) % OCCASION_ROTATION.length]!],
         recipients: [RECIPIENT_ROTATION[(ideaIndex + productRank) % RECIPIENT_ROTATION.length]!, RECIPIENT_ROTATION[(ideaIndex + productRank + 4) % RECIPIENT_ROTATION.length]!],
-        salePrice: (productRank + ideaIndex) % 4 === 0 ? Math.round(idea.price * 0.88) : undefined,
-        dealBadge: (productRank + ideaIndex) % 4 === 0 ? "Good deal" : undefined,
+        // No generated sale prices: these used to invent a 12% "deal" on every
+        // 4th item, which would make any "found for X% less" claim fiction.
+        // A sale price now only ever comes from a real source (admin/Etsy rows).
       } satisfies SeedProduct;
     }),
   );
@@ -448,8 +449,7 @@ function expandExtraGiftIdeas(): SeedProduct[] {
         why: template.why,
         badge: template.badge,
         score: Math.max(70, 80 - ((productIndex + templateIndex) % 9) * 2),
-        salePrice: (productIndex + templateIndex) % 9 === 0 ? Math.round(Math.max(1800, price) * 0.9) : undefined,
-        dealBadge: (productIndex + templateIndex) % 9 === 0 ? "Curated deal" : undefined,
+        // See the note above: no invented sale prices or deal badges.
       } satisfies SeedProduct;
     });
   }).slice(0, maxExtraProducts);
