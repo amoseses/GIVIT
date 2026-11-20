@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { AlertTriangle, ExternalLink, Gift, Send, Star, ThumbsDown, ThumbsUp, Wand2, UserRound } from "lucide-react";
+import { AlertTriangle, ExternalLink, Gift, Send, Star, ThumbsDown, ThumbsUp, UserRound, RefreshCw } from "lucide-react";
 import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { Lock } from "lucide-react";
 import { lowestPriceId, savingsPercent, unlockHref, useMemberLock } from "@/components/gift/savings";
@@ -709,7 +709,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
                   type="button"
                   onClick={() => sendMessage(buildRecipientPrompt(r))}
                   title={r.interests?.length ? `Loves ${r.interests.join(", ")}` : undefined}
-                  className="flex items-center gap-1.5 rounded-full bg-givit-ember/5 px-4 py-2 text-xs font-semibold text-givit-ember shadow-sm shadow-black/[0.03] transition hover:-translate-y-0.5 hover:bg-givit-ember/10"
+                  className="flex items-center gap-1.5 rounded-full border border-givit-ember/40 px-4 py-2 text-xs font-semibold text-givit-ember transition hover:border-givit-ember hover:bg-givit-ember/5"
                 >
                   <UserRound className="h-3.5 w-3.5" /> {r.name}{r.relationship ? ` (${r.relationship})` : ""}
                 </button>
@@ -718,7 +718,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
           )}
           <div className="flex flex-wrap justify-center gap-2">
             {QUICK_PROMPTS.map((qp) => (
-              <button key={qp.label} type="button" onClick={() => sendMessage(qp.prompt)} className="rounded-full bg-card px-4 py-2 text-xs font-medium text-muted-foreground shadow-sm shadow-black/[0.03] transition hover:-translate-y-0.5 hover:text-givit-ember">
+              <button key={qp.label} type="button" onClick={() => sendMessage(qp.prompt)} className="rounded-full border border-border/60 px-4 py-2 text-xs font-medium text-muted-foreground transition hover:border-givit-ember/60 hover:text-givit-ember">
                 {qp.label}
               </button>
             ))}
@@ -730,7 +730,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
         {/* The agent's working brief, back as a real sidebar -- this is what
             GIVIT is actually reasoning against, not a form gating access to
             the chat, so it stays visible and in view while the chat runs. */}
-        <aside className="givit-panel lg:sticky lg:top-20">
+        <aside className="rounded-2xl border border-border/50 lg:sticky lg:top-28">
           <button
             type="button"
             onClick={() => setShowQuestionnaire((v) => !v)}
@@ -738,31 +738,31 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
           >
             <span className="flex items-center gap-1.5 text-givit-ember">
               <span className="tech-dot" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.15em]">Agent brief</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.15em]">The brief</span>
             </span>
             <span className="text-xs font-semibold text-muted-foreground lg:hidden">{showQuestionnaire ? "Hide" : "Edit"}</span>
           </button>
-          <div className={`grid gap-3 border-t border-border/30 px-4 py-4 ${showQuestionnaire ? "grid" : "hidden"} lg:grid`}>
+          <div className={`grid gap-4 border-t border-border/40 px-4 py-5 ${showQuestionnaire ? "grid" : "hidden"} lg:grid`}>
             <Field label="Who is it for?" value={form.recipient} placeholder="Mom, partner, boss..." onChange={(recipient) => setForm((prev) => ({ ...prev, recipient }))} />
             <Field label="Relationship" value={form.relationship} placeholder="Close, formal..." onChange={(relationship) => setForm((prev) => ({ ...prev, relationship }))} />
             <Field label="Age" value={form.age} placeholder="25, 30-40, teenager..." onChange={(age) => setForm((prev) => ({ ...prev, age }))} />
             <div className="grid gap-1.5">
-              <label className="text-xs font-bold text-givit-ink">Gender</label>
-              <select value={form.gender} onChange={(e) => setForm((prev) => ({ ...prev, gender: e.target.value }))} className="h-10 rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20">
+              <label className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Gender</label>
+              <select value={form.gender} onChange={(e) => setForm((prev) => ({ ...prev, gender: e.target.value }))} className="h-9 rounded-none border-0 border-b border-border bg-transparent px-0 text-sm outline-none transition-colors focus:border-givit-ember focus:ring-2 focus:ring-givit-ember/20">
                 {GENDERS.map((item) => <option key={item}>{item}</option>)}
               </select>
             </div>
             <div className="grid gap-1.5">
-              <label className="text-xs font-bold text-givit-ink">Occasion</label>
-              <select value={form.occasion} onChange={(e) => setForm((prev) => ({ ...prev, occasion: e.target.value }))} className="h-10 rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20">
+              <label className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Occasion</label>
+              <select value={form.occasion} onChange={(e) => setForm((prev) => ({ ...prev, occasion: e.target.value }))} className="h-9 rounded-none border-0 border-b border-border bg-transparent px-0 text-sm outline-none transition-colors focus:border-givit-ember focus:ring-2 focus:ring-givit-ember/20">
                 {OCCASIONS.map((item) => <option key={item}>{item}</option>)}
               </select>
             </div>
             <Field label="Budget" value={form.budget} placeholder="Under $75" onChange={(budget) => setForm((prev) => ({ ...prev, budget }))} />
             <Field label="Interests" value={form.interests} placeholder="Coffee, running, books..." onChange={(interests) => setForm((prev) => ({ ...prev, interests }))} />
             <div className="grid gap-1.5">
-              <label className="text-xs font-bold text-givit-ink">Gift style</label>
-              <select value={form.style} onChange={(e) => setForm((prev) => ({ ...prev, style: e.target.value }))} className="h-10 rounded-xl border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-givit-ember/20">
+              <label className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Gift style</label>
+              <select value={form.style} onChange={(e) => setForm((prev) => ({ ...prev, style: e.target.value }))} className="h-9 rounded-none border-0 border-b border-border bg-transparent px-0 text-sm outline-none transition-colors focus:border-givit-ember focus:ring-2 focus:ring-givit-ember/20">
                 {STYLES.map((item) => <option key={item}>{item}</option>)}
               </select>
             </div>
@@ -777,16 +777,16 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
           </div>
         </aside>
 
-      <div className="givit-panel flex flex-col overflow-hidden">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm">
         <div className="flex items-center justify-end px-5 py-3">
           <div className="flex gap-1.5">
             {lastQuery && !loading && (
               <button type="button" onClick={regenerate} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition">
-                <Wand2 className="h-3 w-3" /> Regenerate
+                <RefreshCw className="h-3 w-3" /> Try again
               </button>
             )}
             <button type="button" onClick={startOver} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition">
-              ↺ Start over
+              Start over
             </button>
           </div>
         </div>
@@ -884,10 +884,10 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
               placeholder="Tell me more, adjust the budget, or ask for different ideas..."
               rows={1}
-              className="flex-1 resize-none rounded-xl bg-muted/30 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:outline-none focus:ring-2 focus:ring-givit-ember/30"
+              className="flex-1 resize-none rounded-2xl border border-border/60 bg-transparent px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:outline-none focus:ring-2 focus:ring-givit-ember/30"
               style={{ maxHeight: "120px" }}
             />
-            <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-givit-ember text-white transition-all hover:bg-givit-ember-hover disabled:cursor-not-allowed disabled:opacity-40">
+            <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-givit-ember text-white transition-all hover:bg-givit-ember-hover disabled:cursor-not-allowed disabled:opacity-40">
               <Send className="h-4 w-4" />
             </button>
           </div>
@@ -902,8 +902,8 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
 function Field({ label, value, placeholder, onChange }: { label: string; value: string; placeholder: string; onChange: (value: string) => void }) {
   return (
     <div className="grid gap-1.5">
-      <label className="text-xs font-bold text-givit-ink">{label}</label>
-      <input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-givit-ember/20" />
+      <label className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</label>
+      <input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="h-9 rounded-none border-0 border-b border-border bg-transparent px-0 text-sm outline-none transition-colors focus:border-givit-ember placeholder:text-muted-foreground focus:ring-2 focus:ring-givit-ember/20" />
     </div>
   );
 }

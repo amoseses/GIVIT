@@ -1,6 +1,6 @@
 import { GiftFinderChat } from "@/components/gift/gift-finder-chat";
 import { useSearchParams } from "@/lib/hooks/use-search-params";
-import { AmbientParticles } from "@/components/ui/ambient-particles";
+import { GiftCosmos } from "@/components/ui/gift-cosmos";
 import { PageShell } from "@/components/layout/page-shell";
 
 export default function GiftFinderPage() {
@@ -14,21 +14,20 @@ export default function GiftFinderPage() {
     // every other page shows through, which is what read as "just black"
     // instead of matching everything else's textured look.
     <PageShell wide>
-      {/* Same dark instrument-panel hero as every other main page. The
-          chat panel itself stays on its own light card below, unchanged --
-          an active reading/typing surface wants a calm background, not
-          particles behind the text. */}
-      <section className="relative mb-8 overflow-hidden rounded-3xl bg-black p-8 text-center text-white shadow-xl md:p-12">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-80 w-80 rounded-full bg-givit-coral/25 blur-3xl" />
-        <div className="pointer-events-none absolute -left-16 -bottom-10 h-72 w-72 rounded-full bg-givit-ember/20 blur-3xl" />
-        <AmbientParticles />
+      {/* The same dark viewport as the Marketplace and landing heroes: a
+          rounded near-black frame with the ribbon cosmos turning behind
+          the headline. The chat itself stays on a calm surface below --
+          a reading and typing area wants nothing moving behind the text. */}
+      <section data-cosmos-dark className="relative mb-8 overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0d] px-6 py-12 text-center text-white md:py-16">
+        <GiftCosmos intensity={0.55} centerY={0.62} scale={1.5} tilt={70} />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,#0a0a0d_82%)]" />
         <div className="relative">
-          <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-widest text-givit-coral">GIVIT</p>
-          <h1 className="font-serif text-3xl font-bold md:text-4xl">
-            Your Gift AI
+          <p className="eyebrow-dots mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.3em] text-givit-ember">Thinking it through</p>
+          <h1 className="text-4xl font-light leading-[1.05] tracking-tight md:text-6xl">
+            Your <span className="givit-gradient-text font-semibold">Gift AI</span>
           </h1>
-          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-white/60">
-            Tell it who, what for, and how much — it reasons through the catalog and shows its work.
+          <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-white/60">
+            Tell it who, what for, and how much. It reasons through the catalog and shows its work.
           </p>
         </div>
       </section>

@@ -214,6 +214,7 @@
     @apply scroll-smooth;
   }
   h1, h2, h3, .font-display {
+    font-weight: 600;
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
     letter-spacing: -0.015em;
   }
@@ -502,9 +503,3 @@
   .route-ribbon { animation: none; opacity: 0; }
   .eyebrow-dots::after { animation: none; }
 }
-
-/* Headings: one calm weight instead of bold-everywhere. Unlayered on
-   purpose -- it has to win over the font-bold utilities on individual
-   headings, which is what made the type feel heavy. */
-h1, h2, h3 { font-weight: 600; }
-h1 { letter-spacing: -0.025em; }

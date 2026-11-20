@@ -13,7 +13,6 @@ import { WishlistRail } from "@/components/product/wishlist-button";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
 import { CountUp } from "@/components/ui/count-up";
-import { AmbientParticles } from "@/components/ui/ambient-particles";
 import {
   GIFT_COLLECTIONS,
   MARKETPLACE_CATEGORIES,
@@ -24,6 +23,7 @@ import {
 import { fetchAdminProducts } from "@/lib/data/data-layer";
 import { getTrendingProductClicks } from "@/lib/supabase/db";
 import { TrendingRail } from "@/components/product/trending-rail";
+import { GiftCosmos } from "@/components/ui/gift-cosmos";
 import { useSearchParams } from "@/lib/hooks/use-search-params";
 import { useAuth } from "@/lib/auth/use-auth";
 import { getGiftRecipients } from "@/lib/supabase/db";
@@ -463,22 +463,22 @@ export default function ProductsPage() {
         ) : null}
       </Breadcrumbs>
 
-      <section className="relative mb-6 overflow-hidden rounded-3xl bg-black p-8 text-white shadow-xl md:p-12">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-80 w-80 rounded-full bg-givit-coral/25 blur-3xl" />
-        <div className="pointer-events-none absolute -left-16 -bottom-10 h-72 w-72 rounded-full bg-givit-ember/20 blur-3xl" />
-        <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
-        <AmbientParticles />
+      {/* The dark viewport: same near-black rounded frame as the Gift AI
+          and landing heroes, with the ribbon cosmos turning off to the
+          right so it sits behind the wishlist, not behind the search. */}
+      <section data-cosmos-dark className="relative mb-8 overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0a0d] p-7 text-white md:p-12">
+        <GiftCosmos intensity={0.55} centerX={0.8} centerY={0.5} scale={1.35} tilt={64} />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0a0a0d] via-[#0a0a0d]/75 to-transparent" />
         <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center">
           <div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] font-bold uppercase tracking-widest text-white/50">
-              <span className="text-givit-coral">GIVIT</span>
-              <span>EDITORIALLY CURATED</span>
-              <span><CountUp value={sorted.length} className="font-mono" /> RESULT{sorted.length === 1 ? "" : "S"}</span>
-            </div>
-            <h1 className="mt-4 font-serif text-4xl font-bold leading-[1.05] md:text-6xl">
-              Marketplace
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-white/50">
+              Editorially curated <span className="mx-1.5 text-white/25">/</span>
+              <span className="text-givit-ember"><CountUp value={sorted.length} className="font-mono" /></span> gift{sorted.length === 1 ? "" : "s"}
+            </p>
+            <h1 className="mt-4 text-5xl font-light leading-[1.02] tracking-tight md:text-7xl">
+              The <span className="givit-gradient-text font-semibold">Marketplace</span>
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60 md:text-base">
+            <p className="mt-4 max-w-xl text-sm leading-6 text-white/60 md:text-base">
               Search by recipient, occasion, budget, or category.
             </p>
             <form
@@ -491,23 +491,23 @@ export default function ProductsPage() {
                 const query = new FormData(e.currentTarget).get("q");
                 navigate(typeof query === "string" && query ? `/products?q=${encodeURIComponent(query)}` : "/products");
               }}
-              className="mt-7 flex max-w-2xl overflow-hidden rounded-full bg-card text-givit-ink shadow-xl"
+              className="mt-8 flex max-w-xl overflow-hidden rounded-full border border-white/15 bg-white/[0.06] text-white backdrop-blur-md transition-colors focus-within:border-givit-ember/70"
             >
               <input
                 type="search"
                 name="q"
                 defaultValue={q}
                 placeholder="Search pens, gamers, teachers, coffee, travel..."
-                className="min-w-0 flex-1 px-6 py-3.5 text-sm outline-none"
+                className="min-w-0 flex-1 bg-transparent px-6 py-3.5 text-sm text-white outline-none placeholder:text-white/40"
               />
               <Button type="submit" className="m-1.5 rounded-full bg-givit-ember px-6 text-white hover:bg-givit-ember-hover">
                 <Search className="h-4 w-4" /> Search
               </Button>
             </form>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
-            <div className="flex items-center gap-2 text-sm font-semibold text-givit-coral">
-              <Bookmark className="h-4 w-4" /> Your wishlist
+          <div className="border-t border-white/10 pt-5 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
+            <div className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-widest text-white/50">
+              <Bookmark className="h-3.5 w-3.5 text-givit-ember" /> Your wishlist
             </div>
             <div className="mt-3">
               <WishlistRail />
@@ -517,9 +517,9 @@ export default function ProductsPage() {
       </section>
 
       {shoppingFor ? (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-givit-ember/25 bg-givit-ember/5 px-4 py-3">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-y border-border/50 py-3">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full givit-gradient text-sm font-bold text-white">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-sm font-light text-white">
               {initials(shoppingFor.name)}
             </div>
             <p className="text-sm text-givit-ink">
@@ -536,14 +536,14 @@ export default function ProductsPage() {
           </Link>
         </div>
       ) : savedPeople.length > 0 ? (
-        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-givit-ember/25 bg-givit-ember/5 px-4 py-3.5">
-          <p className="text-sm font-semibold text-givit-ink">Shopping for someone?</p>
+        <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-border/50 py-3">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Shopping for</p>
           <div className="flex flex-wrap items-center gap-2">
             {savedPeople.map((p) => (
               <Link
                 key={p.id}
                 href={`/products?for=${encodeURIComponent(p.id)}${categorySlug ? `&category=${encodeURIComponent(categorySlug)}` : ""}`}
-                className="flex items-center gap-1.5 rounded-full border border-givit-ember/30 bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-givit-ember/60 hover:text-givit-ember"
+                className="flex items-center gap-1.5 rounded-full border border-border/60 px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-givit-ember/60 hover:text-givit-ember"
               >
                 <UserRound className="h-3.5 w-3.5" /> {p.name}
               </Link>
@@ -643,9 +643,9 @@ export default function ProductsPage() {
           {!q && !categorySlug && !occasion && !ageGroup && !minStr && !maxStr && !forId && <TrendingRail className="mb-6" />}
           {!q && !categorySlug && featuredPicks.length > 0 && (
             <section className="mb-6">
-              <div className="mb-3 flex items-center gap-2">
-                <RibbonBow className="h-4 w-4 text-givit-ember" />
-                <h2 className="font-serif text-lg font-bold text-givit-ink">This week's curated picks</h2>
+              <div className="mb-4">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ember">This week</p>
+                <h2 className="mt-1 text-2xl font-light tracking-tight text-foreground md:text-3xl">Curated <span className="font-semibold">picks</span></h2>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 {featuredPicks.map((p) => {
