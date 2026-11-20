@@ -29,6 +29,7 @@ import { useAuth } from "@/lib/auth/use-auth";
 import { getGiftRecipients } from "@/lib/supabase/db";
 import { formatMoney } from "@/lib/format";
 import { initials } from "@/lib/utils";
+import { EbaySearchResults } from "@/components/product/ebay-search-results";
 
 // Pulled from the actual `occasions` tags present in the product catalog
 // (verified by grepping marketplace.ts), not guessed -- the previous list
@@ -472,14 +473,14 @@ export default function ProductsPage() {
         <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center">
           <div>
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-white/50">
-              Editorially curated <span className="mx-1.5 text-white/25">/</span>
+              Compare prices across retailers <span className="mx-1.5 text-white/25">/</span>
               <span className="text-givit-ember"><CountUp value={sorted.length} className="font-mono" /></span> gift{sorted.length === 1 ? "" : "s"}
             </p>
             <h1 className="mt-4 text-5xl font-light leading-[1.02] tracking-tight md:text-7xl">
-              The <span className="givit-gradient-text font-semibold">Marketplace</span>
+              Find the <span className="givit-gradient-text font-semibold">best price.</span>
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-6 text-white/60 md:text-base">
-              Search by recipient, occasion, budget, or category.
+              Search once. Compare GIVIT picks with live retailer listings, then choose the best value.
             </p>
             <form
               onSubmit={(e) => {
@@ -497,7 +498,7 @@ export default function ProductsPage() {
                 type="search"
                 name="q"
                 defaultValue={q}
-                placeholder="Search pens, gamers, teachers, coffee, travel..."
+                placeholder="Search headphones, coffee makers, laptops, home essentials..."
                 className="min-w-0 flex-1 bg-transparent px-6 py-3.5 text-sm text-white outline-none placeholder:text-white/40"
               />
               <Button type="submit" className="m-1.5 rounded-full bg-givit-ember px-6 text-white hover:bg-givit-ember-hover">
@@ -717,6 +718,8 @@ export default function ProductsPage() {
               ))}
             </div>
           )}
+
+          {q ? <EbaySearchResults query={q} /> : null}
 
           <div key={resultsKey} className="slide-up">
             {awaitingPersonalization ? (
