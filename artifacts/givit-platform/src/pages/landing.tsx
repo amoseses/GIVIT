@@ -117,9 +117,9 @@ function ProductShowcase() {
   return (
     <section id="gifts" className="relative bg-black px-6 py-24 text-center text-white">
       <Reveal variant="blur">
-        <p className="text-xs font-bold uppercase tracking-widest text-givit-coral">Real gifts, not just AI talk</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-givit-coral">Real products. Better prices.</p>
         <h2 className="mx-auto mt-3 max-w-2xl text-3xl font-light leading-tight tracking-tight md:text-5xl">
-          Pulled from a catalog of <span className="font-semibold">real, in-stock products.</span>
+          Explore products and compare offers from <span className="font-semibold">real retailers.</span>
         </h2>
       </Reveal>
       <div className="mx-auto mt-12 grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
@@ -214,15 +214,15 @@ export default function LandingPage() {
       </div>
 
       <div className="slide-up relative max-w-2xl" style={{ animationDelay: "80ms" }}>
-        <p className="eyebrow-dots mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.3em] text-givit-ember">Remembering</p>
+        <p className="eyebrow-dots mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.3em] text-givit-ember">Member-powered shopping & savings</p>
         {/* Large and light rather than heavy: at this size weight reads
             as shouting, so the emphasis is carried by one semibold phrase
             in the brand gradient instead of the whole line being bold. */}
         <h1 className="text-5xl font-light leading-[1.05] tracking-tight text-white/95 md:text-7xl">
-          A memory for the <span className="givit-gradient-text font-semibold">people you love.</span>
+          The best price, <span className="givit-gradient-text font-semibold">without the hunt.</span>
         </h1>
         <p className="mt-5 min-h-[3.5rem] text-lg text-white/70 md:min-h-[2.5rem]">
-          Save someone once. Your Gift AI remembers{" "}
+          Search once. GIVIT compares offers across retailers{" "}
           <span className="inline-block font-semibold text-white">
             {typedPrompt}
             <span className="animate-cursor-blink ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] bg-white/80 align-middle" />
@@ -263,14 +263,14 @@ export default function LandingPage() {
           className="slide-up mt-6 text-sm font-medium text-white/50 underline-offset-4 transition hover:text-white/80 hover:underline"
           style={{ animationDelay: "220ms" }}
         >
-          Continue browsing without an account →
+          Browse products and prices →
         </button>
       )}
 
       <div className="slide-up mt-14 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-white/40" style={{ animationDelay: "260ms" }}>
-        <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> No brand deals in rankings</span>
-        <span className="flex items-center gap-1.5"><Gift className="h-3.5 w-3.5" /> Finds the same gift for less</span>
-        <span className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Never forget an important date again</span>
+        <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Price-first product discovery</span>
+        <span className="flex items-center gap-1.5"><Gift className="h-3.5 w-3.5" /> Compare listings across retailers</span>
+        <span className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> See price and shipping details before you buy</span>
       </div>
 
       {/* The hero is a full viewport tall, so the story section right
@@ -295,7 +295,7 @@ export default function LandingPage() {
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 animate-drift rounded-full bg-givit-ember/7 blur-3xl" />
       <Reveal variant="blur" className="relative">
         <h2 className="mx-auto max-w-2xl text-4xl font-light leading-tight tracking-tight md:text-6xl">
-          Ready to never send a <span className="givit-gradient-text font-semibold">bad gift</span> again?
+          Ready to find a <span className="givit-gradient-text font-semibold">better deal</span>?
         </h2>
       </Reveal>
       {user ? (
