@@ -24,11 +24,11 @@ const RAIL_SECTIONS: RailSection[] = [
 ];
 
 const ROTATING_PROMPTS = [
-  "a mom who loves gardening and cozy nights in",
-  "a best friend's milestone birthday",
-  "a coworker you don't know that well",
-  "a partner's anniversary, no clichés",
-  "a dad who says he \"doesn't need anything\"",
+  "wireless headphones under $100",
+  "a coffee maker with free shipping",
+  "the lowest price on a laptop",
+  "a reliable air fryer under $75",
+  "the same product across multiple retailers",
 ];
 
 // Trimmed from 4 steps to 3 (and from 120vh to 90vh each, ~460vh down to
@@ -37,18 +37,18 @@ const ROTATING_PROMPTS = [
 const STORY_STEPS = [
   {
     Icon: UserRound,
-    title: "Save someone once",
-    body: "Names, dates, interests — the details you'd normally hold in your head, or forget.",
+    title: "Tell us what you need",
+    body: "Search by product, category, brand, or budget — or ask GIVIT to help narrow the options.",
   },
   {
     Icon: RibbonBow,
-    title: "Your Gift AI remembers",
-    body: "It proposes a real bundle before every date, with a stated reason for each pick — not a guess.",
+    title: "GIVIT compares retailers",
+    body: "We bring listings together, compare prices and shipping, and surface the strongest value we can verify.",
   },
   {
     Icon: PackageCheck,
-    title: "You approve, it ships",
-    body: "Nothing charges or ships without your yes. The agent thinks it through; you keep the final say.",
+    title: "Choose the best value",
+    body: "Review the listing, seller, condition, and delivery details, then complete checkout with the retailer.",
   },
 ];
 
