@@ -108,11 +108,11 @@ export default function HomePage() {
 
             <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
               <Button asChild className="h-12 rounded-full bg-foreground px-6 text-sm font-bold text-background hover:bg-foreground/90">
-                <Link href="/people">
+                <Link href="/products">
                   Shop Products <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-              <Link href="/gift" className="inline-flex items-center gap-1.5 border-b border-transparent pb-0.5 text-sm font-semibold text-foreground transition hover:border-foreground/40">
+              <Link href="/products" className="inline-flex items-center gap-1.5 border-b border-transparent pb-0.5 text-sm font-semibold text-foreground transition hover:border-foreground/40">
                 Browse deals <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
