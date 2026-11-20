@@ -98,22 +98,22 @@ export default function HomePage() {
                 <GiftBox3D size={40} />
               </div>
             </div>
-            <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ember">Agentic, personalized gifting</p>
+            <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ember">Member-powered shopping & savings</p>
             <h1 className="text-4xl font-light leading-[1.08] tracking-tight text-foreground md:text-6xl">
-              Never send a <span className="givit-gradient-text font-semibold">bad gift</span> again.
+              Find the <span className="givit-gradient-text font-semibold">best price.</span>
             </h1>
             <p className="mt-4 text-base leading-7 text-muted-foreground">
-              GIVIT remembers everyone you care about, finds what they'd actually love, and hunts for the lower price before you approve it.
+              Search across products and retailer listings. GIVIT helps compare prices, shipping, and value before you buy.
             </p>
 
             <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
               <Button asChild className="h-12 rounded-full bg-foreground px-6 text-sm font-bold text-background hover:bg-foreground/90">
                 <Link href="/people">
-                  Add Your First Relationship <ArrowRight className="h-4 w-4" />
+                  Shop Products <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
               <Link href="/gift" className="inline-flex items-center gap-1.5 border-b border-transparent pb-0.5 text-sm font-semibold text-foreground transition hover:border-foreground/40">
-                Talk to GIVIT <ArrowRight className="h-3.5 w-3.5" />
+                Browse deals <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           </div>
