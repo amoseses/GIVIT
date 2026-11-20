@@ -10,6 +10,103 @@ import { getStripe } from "../server/api-lib/stripe.mjs";
 // full 11-category run takes well over Vercel's 10s default.
 export const maxDuration = 60;
 
+// eBay Browse API: public product search, kept on this existing function
+// to respect the Vercel Hobby function-count limit. Credentials are server-only.
+let ebayAccessToken: string | null = null;
+let ebayAccessTokenExpiresAt = 0;
+
+async function getEbayAccessToken() {
+  const clientId = process.env.EBAY_CLIENT_ID?.trim();
+  const clientSecret = process.env.EBAY_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) throw new Error("eBay API credentials are not configured.");
+  if (ebayAccessToken && Date.now() < ebayAccessTokenExpiresAt - 60_000) return ebayAccessToken;
+
+  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const response = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${basic}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      scope: "https://api.ebay.com/oauth/api_scope",
+    }).toString(),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || typeof payload.access_token !== "string") {
+    throw new Error(`eBay token request failed (${response.status}).`);
+  }
+  ebayAccessToken = payload.access_token;
+  ebayAccessTokenExpiresAt = Date.now() + Math.max(60, Number(payload.expires_in) || 7200) * 1000;
+  return ebayAccessToken;
+}
+
+async function handleEbaySearch(req: any, res: any) {
+  const rawQuery = req.query?.q;
+  const query = typeof rawQuery === "string" ? rawQuery.trim().slice(0, 100) : "";
+  if (query.length < 2) {
+    res.status(400).json({ error: "Enter at least two characters to search." });
+    return;
+  }
+  if (!process.env.EBAY_CLIENT_ID || !process.env.EBAY_CLIENT_SECRET) {
+    res.setHeader("Cache-Control", "no-store");
+    res.status(503).json({ error: "eBay search is being configured. Please check back soon.", items: [] });
+    return;
+  }
+
+  try {
+    const token = await getEbayAccessToken();
+    const params = new URLSearchParams({
+      q: query,
+      limit: "24",
+      sort: "price",
+      filter: "buyingOptions:{FIXED_PRICE},deliveryCountry:US",
+    });
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+      "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+      "X-EBAY-C-ENDUSERCTX": "contextualLocation=country%3DUS",
+    };
+    if (process.env.EBAY_CAMPAIGN_ID?.trim()) {
+      headers["X-EBAY-C-ENDUSERCTX"] += `,affiliateCampaignId=${encodeURIComponent(process.env.EBAY_CAMPAIGN_ID.trim())}`;
+    }
+    const response = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params.toString()}`, { headers });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error("eBay Browse API error:", response.status, payload?.errors?.[0]?.message || "request failed");
+      res.status(response.status === 429 ? 503 : 502).json({ error: "eBay search is temporarily unavailable.", items: [] });
+      return;
+    }
+
+    const items = (Array.isArray(payload.itemSummaries) ? payload.itemSummaries : []).map((item: any) => {
+      const price = Number(item.price?.value);
+      const shipping = Array.isArray(item.shippingOptions)
+        ? Number(item.shippingOptions.find((option: any) => option.shippingCost?.value != null)?.shippingCost?.value)
+        : NaN;
+      return {
+        id: String(item.itemId || ""),
+        title: String(item.title || "eBay listing"),
+        imageUrl: item.image?.imageUrl || item.thumbnailImages?.[0]?.imageUrl || null,
+        price: Number.isFinite(price) ? price : null,
+        currency: item.price?.currency || "USD",
+        shipping: Number.isFinite(shipping) ? shipping : null,
+        total: Number.isFinite(price) && Number.isFinite(shipping) ? Math.round((price + shipping) * 100) / 100 : null,
+        condition: item.condition || null,
+        seller: item.seller?.username || null,
+        sellerFeedback: item.seller?.feedbackPercentage || null,
+        url: item.itemAffiliateWebUrl || item.itemWebUrl || null,
+      };
+    }).filter((item: any) => item.id && item.url && item.price !== null);
+
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=900");
+    res.status(200).json({ source: "ebay", query, items });
+  } catch (error: any) {
+    console.error("eBay search failed:", error?.message || error);
+    res.status(502).json({ error: "eBay search is temporarily unavailable.", items: [] });
+  }
+}
+
 const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 // This branch is intentionally open to guests (Gift AI has no sign-in
@@ -227,6 +324,11 @@ export default async function handler(req: any, res: any) {
   // everyone, so the CDN holds it for 30 minutes and serves a stale copy
   // while it refreshes; the Trending rail falls back to its own picks on
   // any failure here.
+  if (req.method === "GET" && req.query?.action === "ebay_search") {
+    await handleEbaySearch(req, res);
+    return;
+  }
+
   if (req.method === "GET" && req.query?.action === "trending") {
     try {
       const items = await fetchEtsyTrending();
