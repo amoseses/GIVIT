@@ -2,13 +2,11 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth/use-auth";
-import { useRecipients } from "@/lib/hooks/use-recipients";
+import { useProfileCompletion, type CompletionStep } from "@/lib/hooks/use-profile-completion";
 import { updateProfile } from "@/lib/supabase/db";
 import { GiftingQuizModal } from "@/components/personalization/gifting-quiz-modal";
 
 const DISMISS_KEY = "givit-profile-completion-dismissed";
-
-type Step = { label: string; done: boolean; href?: string; action?: () => void };
 
 // Every step here reflects something real on the profile/account -- no
 // fabricated "5 more steps!" filler. Dismissible once completion stops
@@ -20,26 +18,19 @@ type Step = { label: string; done: boolean; href?: string; action?: () => void }
 // hairlines -- five ticks for where you are, the single next thing to
 // do, and the full list only if you ask for it.
 export function ProfileCompletionCard() {
-  const { user, profile, refresh } = useAuth();
-  const { recipients } = useRecipients(user);
+  const { user, refresh } = useAuth();
+  const completion = useProfileCompletion();
   const [showQuiz, setShowQuiz] = useState(false);
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(() => {
     try { return window.localStorage.getItem(DISMISS_KEY) === "1"; } catch { return false; }
   });
 
-  if (!user || dismissed) return null;
+  // Nothing until the real numbers are in: otherwise a finished profile
+  // briefly flashes "Add your first person" while the count loads.
+  if (!user || dismissed || !completion.loaded) return null;
 
-  const steps: Step[] = [
-    { label: "Add your name", done: Boolean(profile?.full_name?.trim()), href: "/account" },
-    { label: "Add a phone number", done: Boolean(profile?.phone?.trim()), href: "/account" },
-    { label: "Add a profile photo", done: Boolean(profile?.avatar_url), href: "/account" },
-    { label: "Add your first person", done: recipients.length > 0, href: "/people" },
-    { label: "Take the gifting personality quiz", done: Boolean(profile?.gifting_cohort), action: () => setShowQuiz(true) },
-  ];
-  const doneCount = steps.filter((s) => s.done).length;
-  const next = steps.find((s) => !s.done);
-
+  const { steps, doneCount, next } = completion;
   if (!next) return null;
 
   async function saveCohort(cohortId: string) {
@@ -55,11 +46,11 @@ export function ProfileCompletionCard() {
   }
 
   const stepClass = "inline-flex items-center gap-1.5 font-semibold text-foreground transition-colors hover:text-givit-ember";
-  const renderStep = (step: Step, withArrow: boolean) => {
+  const renderStep = (step: CompletionStep, withArrow: boolean) => {
     const body = <>{step.label}{withArrow && <ArrowRight className="h-3.5 w-3.5" />}</>;
-    return step.action
-      ? <button type="button" onClick={step.action} className={stepClass}>{body}</button>
-      : <Link href={step.href!} className={stepClass}>{body}</Link>;
+    return step.href
+      ? <Link href={step.href} className={stepClass}>{body}</Link>
+      : <button type="button" onClick={() => setShowQuiz(true)} className={stepClass}>{body}</button>;
   };
 
   return (
@@ -72,8 +63,8 @@ export function ProfileCompletionCard() {
                 <span key={step.label} className={`h-3 w-[3px] rounded-full ${step.done ? "bg-givit-ember" : "bg-border"}`} />
               ))}
             </span>
-            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Profile {doneCount}/{steps.length}
+            <span className="text-xs font-medium text-muted-foreground">
+              Profile {doneCount} of {steps.length}
             </span>
           </div>
           <p className="flex items-center gap-2">

@@ -12,7 +12,6 @@ import { ProductGrid } from "@/components/product/product-grid";
 import { WishlistRail } from "@/components/product/wishlist-button";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
-import { CountUp } from "@/components/ui/count-up";
 import {
   GIFT_COLLECTIONS,
   MARKETPLACE_CATEGORIES,
@@ -472,10 +471,6 @@ export default function ProductsPage() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0a0a0d] via-[#0a0a0d]/75 to-transparent" />
         <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center">
           <div>
-            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-white/50">
-              Compare prices across retailers <span className="mx-1.5 text-white/25">/</span>
-              <span className="text-givit-ember"><CountUp value={sorted.length} className="font-mono" /></span> gift{sorted.length === 1 ? "" : "s"}
-            </p>
             <h1 className="mt-4 text-5xl font-light leading-[1.02] tracking-tight md:text-7xl">
               Find the <span className="givit-gradient-text font-semibold">best price.</span>
             </h1>

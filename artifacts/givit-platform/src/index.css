@@ -218,12 +218,6 @@
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
     letter-spacing: -0.015em;
   }
-  /* Eyebrow labels (uppercase + wide tracking) used to be forced onto the
-     monospace face sitewide, which is most of what made the type read as
-     generic "AI dashboard." They now stay in the one sans family. */
-  [class*="tracking-wide"] {
-    letter-spacing: 0.08em;
-  }
 }
 
 @layer utilities {
@@ -502,4 +496,18 @@
 @media (prefers-reduced-motion: reduce) {
   .route-ribbon { animation: none; opacity: 0; }
   .eyebrow-dots::after { animation: none; }
+}
+
+/* The small uppercase, wide-tracked, often monospace "eyebrow" labels that
+   sat above headings and on section labels read as generic dashboard
+   chrome. Rather than hand-edit ~80 call sites they are all brought down to
+   plain sentence-case text in the site's one sans face. Unlayered so it
+   beats the utility classes; data-keep-caps opts an element out. */
+.uppercase[class*="tracking-wide"]:not([data-keep-caps]),
+.uppercase[class*="tracking-["]:not([data-keep-caps]),
+.font-mono.uppercase:not([data-keep-caps]) {
+  text-transform: none;
+  letter-spacing: 0.005em;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
 }

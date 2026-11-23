@@ -184,7 +184,7 @@ function Router() {
 
 function BetaTestingBanner() {
   return (
-    <div className="sticky top-0 z-50 border-b border-amber-700/30 bg-[#d6a21f] px-4 py-2 text-center text-sm font-extrabold uppercase tracking-[0.22em] text-black shadow-sm">
+    <div data-keep-caps className="sticky top-0 z-50 border-b border-amber-700/30 bg-[#d6a21f] px-4 py-2 text-center text-sm font-extrabold uppercase tracking-[0.22em] text-black shadow-sm">
       Beta Testing Version. Free Access.
     </div>
   );

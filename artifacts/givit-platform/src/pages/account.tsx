@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
-import { useLocation, Link } from "wouter";
+import { useLocation, useSearch, Link } from "wouter";
 import { User, Trash2, Camera, ArrowRight, Check, Plus, X } from "lucide-react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
@@ -106,6 +106,17 @@ export default function AccountPage() {
   
   // Profile editing state
   const [editingProfile, setEditingProfile] = useState(false);
+  // /account?edit=1 (the profile-completion links) opens the edit form
+  // straight away. Keyed on the search string (wouter's useLocation is path
+  // only) so it also works when the person is already on /account and the
+  // page doesn't remount.
+  const routeSearch = useSearch();
+  useEffect(() => {
+    if (new URLSearchParams(routeSearch).get("edit") === "1") {
+      setEditingProfile(true);
+      window.history.replaceState(null, "", window.location.pathname + window.location.hash);
+    }
+  }, [routeSearch]);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);

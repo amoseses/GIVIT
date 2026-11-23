@@ -295,7 +295,7 @@ export default function LandingPage() {
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 animate-drift rounded-full bg-givit-ember/7 blur-3xl" />
       <Reveal variant="blur" className="relative">
         <h2 className="mx-auto max-w-2xl text-4xl font-light leading-tight tracking-tight md:text-6xl">
-          Ready to find a <span className="givit-gradient-text font-semibold">better deal</span>?
+          Ready to give like you <span className="givit-gradient-text font-semibold">really know</span> them, for less?
         </h2>
       </Reveal>
       {user ? (

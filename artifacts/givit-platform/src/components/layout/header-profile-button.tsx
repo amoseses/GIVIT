@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef } from "react";
-import { useLocation } from "wouter";
-import { Link } from "wouter";
+import { useState, useRef } from "react";
+import { useLocation, Link } from "wouter";
 import { useTheme } from "next-themes";
-import { CircleUser, Check, Circle, Sparkles, Wand2 } from "lucide-react";
+import { CircleUser, Check, Circle } from "lucide-react";
 import { generatedProfilePhotoUrl } from "@/lib/avatar";
 import { useAuth } from "@/lib/auth/use-auth";
 import { createClient } from "@/lib/supabase/client";
-import { getUserAddresses, getUserPaymentMethods, getGiftRecipients, updateProfile } from "@/lib/supabase/db";
+import { updateProfile } from "@/lib/supabase/db";
 import { getCohort } from "@/lib/data/gifting-cohorts";
+import { useProfileCompletion, type CompletionStep } from "@/lib/hooks/use-profile-completion";
 import { GiftingQuizModal } from "@/components/personalization/gifting-quiz-modal";
 import {
   DropdownMenu,
@@ -27,80 +27,52 @@ type Props = {
   avatarUrl?: string | null;
 };
 
+const RING_RADIUS = 18.5;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
 export function HeaderProfileButton({ loggedIn, email, displayName, role, avatarUrl: realAvatarUrl }: Props) {
   const [, navigate] = useLocation();
-  const { user, profile, refresh } = useAuth();
+  const { user, refresh } = useAuth();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== "light";
   const iconClass = isDark ? "text-white hover:bg-white/10" : "text-givit-ink hover:bg-black/5";
 
   const [open, setOpen] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completion = useProfileCompletion();
+
+  const hoveringRef = useRef(false);
 
   const handleMouseEnter = () => {
+    hoveringRef.current = true;
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setOpen(true);
   };
 
   const handleMouseLeave = () => {
+    hoveringRef.current = false;
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    hoverTimeoutRef.current = setTimeout(() => {
-      setOpen(false);
-    }, 150);
+    hoverTimeoutRef.current = setTimeout(() => setOpen(false), 150);
   };
 
-  const [completion, setCompletion] = useState({
-    hasName: false,
-    hasPhone: false,
-    hasPhoto: false,
-    hasRecipient: false,
-    hasCohort: false,
-    cohortId: null as string | null,
-    percentage: 20,
-    loading: true,
-  });
+  // Hovering opens the menu, so the click that usually follows used to
+  // toggle it straight back shut -- the avatar looked broken to anyone who
+  // clicked it. While the pointer is over the menu, ignore the close; it
+  // closes on mouse-leave, outside click (pointer is elsewhere by then) or
+  // when a link is chosen (go() below).
+  const handleOpenChange = (next: boolean) => {
+    if (!next && hoveringRef.current) return;
+    setOpen(next);
+  };
 
-  useEffect(() => {
-    if (!loggedIn || !user?.id) return;
-    let isMounted = true;
-
-    async function checkCompletion() {
-      try {
-        const recipients = await getGiftRecipients(user!.id);
-        if (!isMounted) return;
-
-        const hasName = Boolean(profile?.full_name?.trim());
-        const hasPhone = Boolean(profile?.phone?.trim());
-        const hasPhoto = Boolean((profile as any)?.avatar_url);
-        const hasRecipient = recipients.length > 0;
-        const cohortId = (profile as any)?.gifting_cohort as string | null;
-        const hasCohort = Boolean(cohortId);
-
-        const items = [hasName, hasPhone, hasPhoto, hasRecipient, hasCohort];
-        const completedCount = items.filter(Boolean).length;
-        const pct = Math.round((completedCount / items.length) * 100);
-
-        setCompletion({
-          hasName,
-          hasPhone,
-          hasPhoto,
-          hasRecipient,
-          hasCohort,
-          cohortId,
-          percentage: pct,
-          loading: false,
-        });
-      } catch (e) {
-        console.warn("Failed to calculate profile completion:", e);
-      }
-    }
-
-    checkCompletion();
-    return () => {
-      isMounted = false;
-    };
-  }, [loggedIn, user?.id, displayName, profile]);
+  // Close first, then navigate: a link chosen while hovering would
+  // otherwise leave the menu hanging open over the next page.
+  const go = (path: string) => {
+    hoveringRef.current = false;
+    setOpen(false);
+    navigate(path);
+  };
 
   if (!loggedIn) {
     return (
@@ -117,6 +89,9 @@ export function HeaderProfileButton({ loggedIn, email, displayName, role, avatar
   const isAdmin = role === "admin";
   const avatarUrl = realAvatarUrl || generatedProfilePhotoUrl(email || displayName);
   const cohort = getCohort(completion.cohortId);
+  // The ring only exists while there is something left to do, and only once
+  // the real numbers are in -- a complete profile just shows a clean avatar.
+  const showRing = completion.loaded && !completion.complete;
 
   async function signOut() {
     const supabase = createClient();
@@ -132,6 +107,16 @@ export function HeaderProfileButton({ loggedIn, email, displayName, role, avatar
     setShowQuiz(false);
   }
 
+  function runStep(step: CompletionStep) {
+    if (step.href) {
+      go(step.href);
+    } else {
+      hoveringRef.current = false;
+      setOpen(false);
+      setShowQuiz(true);
+    }
+  }
+
   return (
     <>
       <div
@@ -139,53 +124,43 @@ export function HeaderProfileButton({ loggedIn, email, displayName, role, avatar
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenu open={open} onOpenChange={handleOpenChange}>
           <DropdownMenuTrigger
-            aria-label="Profile menu"
+            aria-label={showRing ? `Profile menu, ${completion.percent}% complete` : "Profile menu"}
             className={`relative flex h-11 w-11 items-center justify-center rounded-full transition-all outline-none ${iconClass}`}
           >
-            {/* Avatar Photo */}
             <img
               src={avatarUrl}
               alt={displayName || email || "Account"}
-              className={`h-8 w-8 rounded-full bg-white object-cover ring-2 transition-all ${
-                isDark ? "ring-white/30" : "ring-black/10"
-              }`}
+              className="h-8 w-8 rounded-full bg-white object-cover"
             />
 
-            {/* Glowing Neon Green Progress Arc hugging the avatar icon curve */}
-            <svg
-              className="absolute inset-0 h-11 w-11 pointer-events-none overflow-visible"
-              viewBox="0 0 44 44"
-            >
-              {/* Background track */}
-              <circle
-                cx="22"
-                cy="22"
-                r="18.5"
-                fill="none"
-                stroke={isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}
-                strokeWidth="2"
-              />
-
-              {/* Glowing Neon Green Arc hugging the avatar icon curve */}
-              <circle
-                cx="22"
-                cy="22"
-                r="18.5"
-                fill="none"
-                stroke="#00FF66"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeDasharray="116.24"
-                strokeDashoffset={116.24 - (116.24 * completion.percentage) / 100}
-                transform="rotate(135 22 22)"
-                className="transition-all duration-500 ease-out"
-                style={{
-                  filter: "drop-shadow(0 0 4px #00FF66)",
-                }}
-              />
-            </svg>
+            {showRing && (
+              <svg className="pointer-events-none absolute inset-0 h-11 w-11" viewBox="0 0 44 44" aria-hidden="true">
+                <circle
+                  cx="22"
+                  cy="22"
+                  r={RING_RADIUS}
+                  fill="none"
+                  stroke={isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.10)"}
+                  strokeWidth="2"
+                />
+                {/* Starts at 12 o'clock and fills clockwise. */}
+                <circle
+                  cx="22"
+                  cy="22"
+                  r={RING_RADIUS}
+                  fill="none"
+                  stroke="var(--givit-ember)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray={RING_CIRCUMFERENCE}
+                  strokeDashoffset={RING_CIRCUMFERENCE * (1 - completion.percent / 100)}
+                  transform="rotate(-90 22 22)"
+                  className="transition-all duration-500 ease-out"
+                />
+              </svg>
+            )}
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
@@ -194,186 +169,106 @@ export function HeaderProfileButton({ loggedIn, email, displayName, role, avatar
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
-            <DropdownMenuLabel className="font-normal px-2 py-1 flex items-center justify-between">
-              <div>
-                <p className="font-semibold text-givit-ink text-sm">{displayName || "Account"}</p>
-                {email ? <p className="text-muted-foreground text-xs truncate">{email}</p> : null}
+            <DropdownMenuLabel className="flex items-center justify-between px-2 py-1 font-normal">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-givit-ink">{displayName || "Account"}</p>
+                {email ? <p className="truncate text-xs text-muted-foreground">{email}</p> : null}
               </div>
               {cohort && (
-                <span className="text-lg" title={cohort.name}>
+                <span className="ml-2 text-lg" title={cohort.name}>
                   {cohort.emoji}
                 </span>
               )}
             </DropdownMenuLabel>
 
-            <DropdownMenuSeparator className="my-2" />
-
-            {/* Profile Completion Dropdown Box */}
-            <div className="rounded-xl bg-black/5 dark:bg-white/5 p-3 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-givit-ink flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-[#00FF66]" /> Profile Completion
-                </span>
-                <span className="text-xs font-bold text-[#00FF66]">{completion.percentage}%</span>
-              </div>
-
-              {/* Neon Green Progress Bar */}
-              <div className="h-2 w-full rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-[#00FF66] transition-all duration-500"
-                  style={{
-                    width: `${completion.percentage}%`,
-                    boxShadow: "0 0 8px #00FF66",
-                  }}
-                />
-              </div>
-
-              {/* 5 Profile Completion Tasks */}
-              <div className="space-y-1.5 pt-1">
-                {/* Task 1: Name */}
-                <div
-                  onClick={() => {
-                    setOpen(false);
-                    navigate("/account");
-                  }}
-                  className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    {completion.hasName ? (
-                      <Check className="h-3.5 w-3.5 text-[#00FF66] shrink-0" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    )}
-                    <span className={completion.hasName ? "text-givit-ink font-medium" : "text-muted-foreground"}>
-                      Add your name
+            {completion.loaded && (
+              <>
+                <DropdownMenuSeparator className="my-2" />
+                {completion.complete ? (
+                  <div className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2.5 text-xs">
+                    <span className="flex items-center gap-2 font-medium text-foreground">
+                      <Check className="h-3.5 w-3.5 text-givit-ember" /> Your profile is complete
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => { hoveringRef.current = false; setOpen(false); setShowQuiz(true); }}
+                      className="font-semibold text-givit-ember hover:underline"
+                    >
+                      Retake quiz
+                    </button>
                   </div>
-                  {!completion.hasName && (
-                    <span className="text-[10px] font-bold text-[#00FF66] hover:underline">Add</span>
-                  )}
-                </div>
-
-                {/* Task 2: Phone */}
-                <div
-                  onClick={() => {
-                    setOpen(false);
-                    navigate("/account");
-                  }}
-                  className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    {completion.hasPhone ? (
-                      <Check className="h-3.5 w-3.5 text-[#00FF66] shrink-0" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    )}
-                    <span className={completion.hasPhone ? "text-givit-ink font-medium" : "text-muted-foreground"}>
-                      Add a phone number
-                    </span>
+                ) : (
+                  <div className="rounded-xl bg-muted/50 p-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-foreground">Finish your profile</span>
+                      <span className="tabular-nums text-muted-foreground">{completion.doneCount} of {completion.total}</span>
+                    </div>
+                    <div
+                      className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={completion.percent}
+                    >
+                      <div className="h-full rounded-full bg-givit-ember transition-all duration-500" style={{ width: `${completion.percent}%` }} />
+                    </div>
+                    <ul className="mt-2 space-y-0.5">
+                      {completion.steps.map((step) => (
+                        <li key={step.key}>
+                          <button
+                            type="button"
+                            onClick={() => runStep(step)}
+                            className="flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1.5 text-left text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              {step.done ? (
+                                <Check className="h-3.5 w-3.5 shrink-0 text-givit-ember" />
+                              ) : (
+                                <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                              )}
+                              <span className={step.done ? "truncate text-foreground" : "truncate text-muted-foreground"}>
+                                {step.key === "quiz" && cohort ? cohort.name : step.label}
+                              </span>
+                            </span>
+                            {step.done ? (
+                              step.key === "quiz" ? <span className="shrink-0 text-[11px] text-muted-foreground">Retake</span> : null
+                            ) : (
+                              <span className="shrink-0 text-[11px] font-semibold text-givit-ember">{step.cta}</span>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  {!completion.hasPhone && (
-                    <span className="text-[10px] font-bold text-[#00FF66] hover:underline">Add</span>
-                  )}
-                </div>
-
-                {/* Task 3: Profile Photo */}
-                <div
-                  onClick={() => {
-                    setOpen(false);
-                    navigate("/account");
-                  }}
-                  className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    {completion.hasPhoto ? (
-                      <Check className="h-3.5 w-3.5 text-[#00FF66] shrink-0" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    )}
-                    <span className={completion.hasPhoto ? "text-givit-ink font-medium" : "text-muted-foreground"}>
-                      Add a profile photo
-                    </span>
-                  </div>
-                  {!completion.hasPhoto && (
-                    <span className="text-[10px] font-bold text-[#00FF66] hover:underline">Add</span>
-                  )}
-                </div>
-
-                {/* Task 4: First Person */}
-                <div
-                  onClick={() => {
-                    setOpen(false);
-                    navigate("/people");
-                  }}
-                  className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    {completion.hasRecipient ? (
-                      <Check className="h-3.5 w-3.5 text-[#00FF66] shrink-0" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    )}
-                    <span className={completion.hasRecipient ? "text-givit-ink font-medium" : "text-muted-foreground"}>
-                      Add your first person
-                    </span>
-                  </div>
-                  {!completion.hasRecipient && (
-                    <span className="text-[10px] font-bold text-[#00FF66] hover:underline">Add</span>
-                  )}
-                </div>
-
-                {/* Task 5: Gifting Personality Quiz */}
-                <div
-                  onClick={() => {
-                    setOpen(false);
-                    setShowQuiz(true);
-                  }}
-                  className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    {completion.hasCohort ? (
-                      <Check className="h-3.5 w-3.5 text-[#00FF66] shrink-0" />
-                    ) : (
-                      <Wand2 className="h-3.5 w-3.5 text-[#00FF66] shrink-0" />
-                    )}
-                    <span className={completion.hasCohort ? "text-givit-ink font-medium" : "text-muted-foreground"}>
-                      {cohort ? cohort.name : "Gifting Personality Quiz"}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold text-[#00FF66] hover:underline">
-                    {completion.hasCohort ? "Retake" : "Start"}
-                  </span>
-                </div>
-              </div>
-            </div>
+                )}
+              </>
+            )}
 
             <DropdownMenuSeparator className="my-2" />
 
-            {/* Navigation Links */}
-            <DropdownMenuItem onClick={() => navigate("/account")}>Account</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate("/orders")}>Orders</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate("/wishlist")}>Wishlist</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => go("/account")}>Account</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => go("/orders")}>Orders</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => go("/wishlist")}>Wishlist</DropdownMenuItem>
             {isAdmin ? (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/manager")}>Manager console</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/admin")}>Admin products</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => go("/manager")}>Manager console</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => go("/admin")}>Admin products</DropdownMenuItem>
               </>
             ) : (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/secret-santa")}>Secret Santa</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/people")}>People</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/concierge")}>AutoGift</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => go("/secret-santa")}>Secret Santa</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => go("/people")}>People</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => go("/concierge")}>AutoGift</DropdownMenuItem>
               </>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={signOut}>Sign out</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { hoveringRef.current = false; setOpen(false); void signOut(); }}>Sign out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      {/* Gifting Quiz Modal */}
       {showQuiz && (
         <GiftingQuizModal
           onClose={() => setShowQuiz(false)}

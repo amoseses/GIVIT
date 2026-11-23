@@ -22,7 +22,6 @@ export default function GiftFinderPage() {
         <GiftCosmos intensity={0.55} centerY={0.62} scale={1.5} tilt={70} />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,#0a0a0d_82%)]" />
         <div className="relative">
-          <p className="eyebrow-dots mb-4 font-mono text-[11px] font-bold uppercase tracking-[0.3em] text-givit-ember">Thinking it through</p>
           <h1 className="text-4xl font-light leading-[1.05] tracking-tight md:text-6xl">
             Your <span className="givit-gradient-text font-semibold">Gift AI</span>
           </h1>

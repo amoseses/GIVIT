@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link } from "wouter";
 import { ArrowRight, Bell, Gift, Heart, PackageCheck, UserRound, Zap } from "lucide-react";
 import { RibbonBow } from "@/components/ui/givit-glyphs";
@@ -15,6 +16,7 @@ import { Reveal } from "@/components/ui/reveal";
 import { TypewriterText } from "@/components/ui/typewriter-text";
 import { useAuth } from "@/lib/auth/use-auth";
 import { useScrollProgress } from "@/lib/hooks/use-scroll-progress";
+import { nextOccurrenceDate, useRecipients } from "@/lib/hooks/use-recipients";
 import { TrendingRail } from "@/components/product/trending-rail";
 import { MembershipSection } from "@/components/personalization/membership-section";
 
@@ -71,6 +73,22 @@ function HowItWorksScroll() {
 
 export default function HomePage() {
   const { user } = useAuth();
+  const { recipients } = useRecipients(user);
+  // The soonest date across everyone saved -- the clearest proof on the page
+  // that GIVIT actually remembers the people it's about.
+  const nextUp = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    let best: { name: string; label: string; days: number } | null = null;
+    for (const r of recipients) {
+      for (const o of r.occasions) {
+        if (!o.date) continue;
+        const days = Math.round((nextOccurrenceDate(o.date, now).getTime() - today) / 86400000);
+        if (!best || days < best.days) best = { name: r.name.split(" ")[0] ?? r.name, label: o.label.toLowerCase(), days };
+      }
+    }
+    return best;
+  }, [recipients]);
   return (
     <div className="pb-12">
       <WelcomeTour />
@@ -98,13 +116,21 @@ export default function HomePage() {
                 <GiftBox3D size={40} />
               </div>
             </div>
-            <p className="mb-3 font-mono text-[10px] font-bold uppercase tracking-widest text-givit-ember">Member-powered shopping & savings</p>
             <h1 className="text-4xl font-light leading-[1.08] tracking-tight text-foreground md:text-6xl">
-              Find the <span className="givit-gradient-text font-semibold">best price.</span>
+              Give like you <span className="givit-gradient-text font-semibold">really know</span> them.
             </h1>
             <p className="mt-4 text-base leading-7 text-muted-foreground">
-              Search across products and retailer listings. GIVIT helps compare prices, shipping, and value before you buy.
+              GIVIT builds a memory of everyone you care about: what they love, the dates that matter, what you gave last time. Then it compares prices across retailers to find the right gift, for less.
             </p>
+            {nextUp ? (
+              <Link href="/gift" className="mt-5 inline-flex items-center gap-2 rounded-full border border-border/60 px-4 py-1.5 text-sm text-foreground transition hover:border-givit-ember/50 hover:text-givit-ember">
+                <span className="text-muted-foreground">Next up</span>
+                <span className="font-medium">
+                  {nextUp.name}'s {nextUp.label} {nextUp.days === 0 ? "is today" : nextUp.days === 1 ? "is tomorrow" : `is in ${nextUp.days} days`}
+                </span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            ) : null}
 
             <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
               <Button asChild className="h-12 rounded-full bg-foreground px-6 text-sm font-bold text-background hover:bg-foreground/90">

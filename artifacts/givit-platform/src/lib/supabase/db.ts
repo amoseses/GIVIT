@@ -107,15 +107,25 @@ export async function getGiftRecipients(userId: string) {
   return data ?? [];
 }
 
+// Fired after the saved-people list changes so anything that summarises it
+// (the header profile ring, the dashboard completion card) refreshes
+// immediately instead of waiting for an unrelated profile update.
+export const RECIPIENTS_CHANGED_EVENT = "givit:recipients-changed";
+function notifyRecipientsChanged() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(RECIPIENTS_CHANGED_EVENT));
+}
+
 export async function deleteGiftRecipient(id: string) {
   const supabase = getDb();
   const { error } = await supabase.from("gift_recipients").delete().eq("id", id);
+  if (!error) notifyRecipientsChanged();
   return { error };
 }
 
 export async function saveGiftRecipient(recipient: Record<string, unknown>) {
   const supabase = getDb();
   const { data, error } = await supabase.from("gift_recipients").upsert(recipient).select().single();
+  if (!error) notifyRecipientsChanged();
   return { data, error };
 }
 
