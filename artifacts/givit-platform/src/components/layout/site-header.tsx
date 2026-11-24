@@ -7,7 +7,6 @@ import { RibbonBow } from "@/components/ui/givit-glyphs";
 import { MEMBERSHIP_ENABLED, MEMBERSHIP_PRICE_LABEL, isActiveMember } from "@/lib/credits/credits";
 
 import { HeaderProfileButton } from "@/components/layout/header-profile-button";
-import { CreditBalanceBadge } from "@/components/layout/credit-balance-badge";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useAuth } from "@/lib/auth/use-auth";
 import { HolidayWreath } from "@/components/ui/holiday-wreath";
@@ -84,7 +83,6 @@ export function SiteHeader() {
                 </Link>
               )
             ) : null}
-            {user ? <CreditBalanceBadge isDark={isDark} /> : null}
             <ThemeToggle />
             <HeaderProfileButton
               loggedIn={Boolean(user && profile)}
