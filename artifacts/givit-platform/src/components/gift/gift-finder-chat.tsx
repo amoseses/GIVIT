@@ -411,7 +411,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
   // The brief sidebar is always visible on desktop (see the lg:grid override
   // below); this only controls whether it's expanded on narrow screens,
   // where a permanent 300px column isn't viable next to the chat.
-  const [showQuestionnaire, setShowQuestionnaire] = useState(true);
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   // Saved AutoGift recipient profiles double as one-tap starting points here
   // — their interests/avoid-list/budget were already captured once, so
   // reusing them avoids making the shopper retype what GIVIT already knows.
