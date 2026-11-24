@@ -76,7 +76,6 @@ const PaymentElementForm = forwardRef<PaymentFormHandle, PaymentElementFormProps
 // the Stripe return handling below, so those two must not be renamed.
 const ACCOUNT_SECTIONS: AccountNavItem[] = [
   { id: "profile", label: "Profile" },
-  { id: "credits", label: "Credits" },
   ...(MEMBERSHIP_ENABLED ? [{ id: "membership", label: "Membership" }] : []),
   { id: "orders", label: "Orders" },
   { id: "wishlist", label: "Wishlist" },
@@ -631,68 +630,10 @@ export default function AccountPage() {
   return (
     <PageShell className="max-w-6xl">
       <AccountLayout sections={ACCOUNT_SECTIONS} links={QUICK_LINKS} header={profileHeader}>
-        {/* Credits: one of the two real surfaces on this page. */}
-        <AccountSection id="credits" title="Credits" description="Credits cover AutoGifts once your free ones for the year are used.">
-          {!creditStatus ? (
-            <p className="text-sm text-muted-foreground">Couldn't load your credit balance right now.</p>
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card">
-              <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-end sm:justify-between sm:p-8">
-                <div>
-                  <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Balance</p>
-                  <p className="mt-2 flex items-baseline gap-2.5">
-                    <span className="text-5xl font-light tracking-tight tabular-nums text-givit-ink md:text-6xl">{creditStatus.balance}</span>
-                    <span className="text-sm text-muted-foreground">credits</span>
-                  </p>
-                </div>
-                {/* "X of Y" alone read as ambiguous (used vs. remaining), so
-                    the label spells out "left" explicitly. */}
-                <dl className="grid gap-2 text-sm sm:text-right">
-                  <div className="flex items-baseline justify-between gap-6 sm:justify-end">
-                    <dt className="text-muted-foreground">Free AutoGifts left</dt>
-                    <dd className="tabular-nums text-givit-ink">{creditStatus.freeAutogiftRemaining} of {creditStatus.freeAutogiftLimit}</dd>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-6 sm:justify-end">
-                    <dt className="text-muted-foreground">Gift AI</dt>
-                    <dd className="text-success">Always free</dd>
-                  </div>
-                </dl>
-              </div>
-              <ul className="divide-y divide-border/40 border-t border-border/40">
-                {CREDIT_PACKS.map((pack) => {
-                  const perCreditCents = pack.priceCents / pack.credits;
-                  const isBestValue = CREDIT_PACKS.length > 1 && perCreditCents === bestPackRate && perCreditCents < worstPackRate;
-                  const savingsPct = isBestValue ? Math.round((1 - perCreditCents / worstPackRate) * 100) : 0;
-                  return (
-                    <li key={pack.id} className="flex flex-wrap items-center gap-x-6 gap-y-3 px-6 py-5 sm:px-8">
-                      <div className="min-w-0 flex-1 basis-40">
-                        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 font-medium text-givit-ink">
-                          {pack.label}
-                          {isBestValue && (
-                            <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-givit-ember">Best value, save {savingsPct}%</span>
-                          )}
-                        </p>
-                        <p className="mt-0.5 text-sm text-muted-foreground">{pack.credits} credits, ${(perCreditCents / 100).toFixed(2)} each</p>
-                      </div>
-                      <span className="text-lg font-light tabular-nums text-givit-ink">${(pack.priceCents / 100).toFixed(2)}</span>
-                      <Button
-                        type="button"
-                        variant={isBestValue ? "default" : "outline"}
-                        disabled={buyingPack !== null}
-                        onClick={() => void handleBuyPack(pack.id)}
-                        className={isBestValue ? primaryButtonClass : secondaryButtonClass}
-                      >
-                        {buyingPack === pack.id ? "Opening checkout..." : `Buy ${pack.credits} credits`}
-                      </Button>
-                    </li>
-                  );
-                })}
-              </ul>
-              <p className="border-t border-border/40 px-6 py-4 text-xs leading-relaxed text-muted-foreground sm:px-8">
-                Free AutoGifts are used first and reset every January. After that, credits cover each AutoGift.
-              </p>
-            </div>
-          )}
+        <AccountSection id="testing" title="GIVIT beta" description="All recommendation and price-comparison features are currently free to test.">
+          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            No credits, credit packs, or membership payments are active during beta. The planned membership is a flat $5 per month for access to GIVIT's AI recommendations and lowest-price comparisons across connected stores.
+          </p>
         </AccountSection>
 
         {/* Membership -- behind VITE_ENABLE_MEMBERSHIP until the founders
