@@ -40,7 +40,7 @@ export type MembershipTierId = (typeof MEMBERSHIP_TIERS)[number]["id"];
 // checkout, activation on the redirect back (account.tsx calls
 // syncMembership()), monthly credits -- but no real subscription has been
 // run end to end yet. Turn it on after one test purchase works.
-export const MEMBERSHIP_ENABLED = import.meta.env.VITE_ENABLE_MEMBERSHIP === "true";
+export const MEMBERSHIP_ENABLED = false; // Membership checkout is intentionally disabled during the free beta.
 export const MEMBERSHIP_PRICE_LABEL = `$${(MEMBERSHIP_TIERS[0].priceCents / 100).toFixed(2)}`;
 // What the same credits cost bought as the best one-time pack -- the
 // honest basis for the "save N%" line, derived rather than hard-coded so
@@ -98,31 +98,10 @@ export async function getCreditStatus(): Promise<CreditStatus | null> {
 // order) -- never after, so a user never gets charged for something that
 // then fails, and never gets the AI output for free because the spend
 // check happened too late.
-export async function spendCredit(reason: "gift_ai_chat" | "secret_santa_match" | "autogift_purchase", amount: number, referenceId?: string): Promise<SpendResult> {
-  try {
-    const res = await authedFetch("/api/metadata?action=credits_spend", {
-      method: "POST",
-      body: JSON.stringify({ amount, reason, referenceId }),
-    });
-    if (!res) {
-      return { ok: false, usedFree: false, balance: 0, error: "unavailable" };
-    }
-    const data = await res.json().catch(() => null);
-    // Only a 402 means "really out of credits"; a 500 means the ledger
-    // itself failed, which the user can't fix by buying more.
-    if (res.status === 402) {
-      return { ok: false, usedFree: false, balance: data?.balance ?? 0, error: "insufficient_credits" };
-    }
-    if (!res.ok || !data?.ok) {
-      return { ok: false, usedFree: false, balance: data?.balance ?? 0, error: "unavailable" };
-    }
-    notifyCreditsChanged();
-    return data;
-  } catch {
-    // Network failure: fail closed (block the action) rather than silently
-    // letting a metered feature run for free.
-    return { ok: false, usedFree: false, balance: 0, error: "unavailable" };
-  }
+export async function spendCredit(_reason: "gift_ai_chat" | "secret_santa_match" | "autogift_purchase", _amount: number, _referenceId?: string): Promise<SpendResult> {
+  // Temporary free-beta mode: all AI recommendations and assisted features
+  // are available without credits. No Stripe charge or credit ledger write.
+  return { ok: true, usedFree: true, balance: 0 };
 }
 
 // Sends the browser to Stripe's hosted Checkout. Resolves with an error
