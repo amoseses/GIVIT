@@ -215,6 +215,78 @@ function TypingIndicator() {
   );
 }
 
+type EbayUsedListing = {
+  id: string;
+  title: string;
+  imageUrl: string | null;
+  price: number;
+  currency: string;
+  shipping: number | null;
+  total: number | null;
+  condition: string | null;
+  seller: string | null;
+  sellerFeedback: string | null;
+  url: string;
+};
+
+function EbayUsedPriceLookup({ productName }: { productName: string }) {
+  const [listing, setListing] = useState<EbayUsedListing | null>(null);
+  const [status, setStatus] = useState<"loading" | "found" | "empty" | "error">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    setStatus("loading");
+    setListing(null);
+    const params = new URLSearchParams({ action: "ebay_search", q: productName, mode: "used" });
+    fetch(`/api/metadata?${params.toString()}`)
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "eBay search unavailable");
+        return data;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const matches = Array.isArray(data.items) ? data.items as EbayUsedListing[] : [];
+        const best = matches
+          .filter((item) => item?.url && Number.isFinite(Number(item.total ?? item.price)))
+          .sort((a, b) => Number(a.total ?? a.price) - Number(b.total ?? b.price))[0] ?? null;
+        setListing(best);
+        setStatus(best ? "found" : "empty");
+      })
+      .catch(() => { if (!cancelled) setStatus("error"); });
+    return () => { cancelled = true; };
+  }, [productName]);
+
+  return (
+    <div className="mt-3 rounded-xl border border-border/60 bg-muted/30 p-3">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Second-hand price check</span>
+        <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">eBay · Used</span>
+      </div>
+      {status === "loading" ? (
+        <p className="text-xs text-muted-foreground">Checking used listings for this exact recommendation…</p>
+      ) : status === "found" && listing ? (
+        <div className="flex items-center gap-3">
+          {listing.imageUrl ? <img src={listing.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg bg-background object-contain" loading="lazy" /> : null}
+          <div className="min-w-0 flex-1">
+            <p className="line-clamp-2 text-xs font-semibold leading-snug text-foreground">{listing.title}</p>
+            <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+              {new Intl.NumberFormat("en-US", { style: "currency", currency: listing.currency || "USD" }).format(Number(listing.total ?? listing.price))}
+              <span className="ml-1 text-[10px] font-normal text-muted-foreground">{listing.shipping == null ? " · shipping not included" : " · incl. listed shipping"}</span>
+            </p>
+            <p className="text-[10px] text-muted-foreground">{listing.condition || "Used"}{listing.seller ? ` · Seller: ${listing.seller}` : ""}</p>
+          </div>
+          <a href={listing.url} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-emerald-600 px-3 py-2 text-[11px] font-semibold text-white hover:bg-emerald-700">View deal</a>
+        </div>
+      ) : status === "empty" ? (
+        <p className="text-xs text-muted-foreground">No matching second-hand listing found right now. Try again later or view new options above.</p>
+      ) : (
+        <p className="text-xs text-muted-foreground">Couldn't check eBay right now. The GIVIT recommendation is still available above.</p>
+      )}
+    </div>
+  );
+}
+
 function GiftCard({ result, index, onItemFeedback, lowest = false }: { result: GiftResult; index: number; onItemFeedback: (result: GiftResult, liked: boolean) => void; lowest?: boolean }) {
   const [imageSrc, setImageSrc] = useState(result.image_url || productPhotoFallback(result.slug, result.category_slug));
   // Tapping Like/Not this used to give zero visual confirmation — the
@@ -275,6 +347,7 @@ function GiftCard({ result, index, onItemFeedback, lowest = false }: { result: G
             ))}
           </div>
         )}
+        <EbayUsedPriceLookup productName={result.name} />
         <div className="mt-3 grid gap-2">
           {locked ? (
             <Link
@@ -698,7 +771,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
   }
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4">
+    <div className="mx-auto flex min-w-0 w-full max-w-5xl flex-col gap-4 px-0 sm:px-1">
       {messages.length === 1 && (
         <div className="flex flex-col items-center gap-3">
           {savedRecipients.length > 0 && (
@@ -726,7 +799,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
+      <div className="grid min-w-0 gap-3 sm:gap-4 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
         {/* The agent's working brief, back as a real sidebar -- this is what
             GIVIT is actually reasoning against, not a form gating access to
             the chat, so it stays visible and in view while the chat runs. */}
@@ -777,8 +850,8 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
           </div>
         </aside>
 
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm">
-        <div className="flex items-center justify-end px-5 py-3">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm">
+        <div className="flex items-center justify-end px-3 py-2.5 sm:px-5 sm:py-3">
           <div className="flex gap-1.5">
             {lastQuery && !loading && (
               <button type="button" onClick={regenerate} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition">
@@ -791,7 +864,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
           </div>
         </div>
 
-        <div ref={scrollContainerRef} className="flex flex-col gap-6 overflow-y-auto border-t border-border/30 p-5" style={{ maxHeight: "65vh" }}>
+        <div ref={scrollContainerRef} className="flex min-w-0 flex-col gap-5 overflow-y-auto border-t border-border/30 p-3 sm:gap-6 sm:p-5" style={{ maxHeight: "65vh" }}>
           {messages.map((msg) => (
             <div key={msg.id}>
               {msg.role === "user" ? (
@@ -875,8 +948,8 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
             </div>
           ))}
         </div>
-        <div className="border-t border-border/30 p-3">
-          <div className="flex items-end gap-2">
+        <div className="border-t border-border/30 p-2.5 sm:p-3">
+          <div className="flex min-w-0 items-end gap-2">
             <textarea
               ref={inputRef}
               value={input}
