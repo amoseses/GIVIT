@@ -57,11 +57,14 @@ async function handleEbaySearch(req: any, res: any) {
 
   try {
     const token = await getEbayAccessToken();
+    const mode = typeof req.query?.mode === "string" ? req.query.mode : "all";
     const params = new URLSearchParams({
       q: query,
-      limit: "24",
+      limit: mode === "used" ? "50" : "24",
       sort: "price",
-      filter: "buyingOptions:{FIXED_PRICE},deliveryCountry:US",
+      filter: mode === "used"
+        ? "buyingOptions:{FIXED_PRICE},deliveryCountry:US,conditionIds:{3000|4000|5000|6000}"
+        : "buyingOptions:{FIXED_PRICE},deliveryCountry:US",
     });
     const headers: Record<string, string> = {
       Authorization: `Bearer ${token}`,
@@ -97,10 +100,17 @@ async function handleEbaySearch(req: any, res: any) {
         sellerFeedback: item.seller?.feedbackPercentage || null,
         url: item.itemAffiliateWebUrl || item.itemWebUrl || null,
       };
-    }).filter((item: any) => item.id && item.url && item.price !== null);
+    }).filter((item: any) => {
+      if (!item.id || !item.url || item.price === null) return false;
+      if (mode !== "used") return true;
+      return /used|pre[- ]?owned|open box/i.test(String(item.condition || ""));
+    });
 
+    // Browse API price sorting considers item price plus shipping. Sort the
+    // normalized listings again so the cheapest delivered option is first.
+    items.sort((left: any, right: any) => (left.total ?? left.price) - (right.total ?? right.price));
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=900");
-    res.status(200).json({ source: "ebay", query, items });
+    res.status(200).json({ source: "ebay", query, mode, items });
   } catch (error: any) {
     console.error("eBay search failed:", error?.message || error);
     res.status(502).json({ error: "eBay search is temporarily unavailable.", items: [] });
