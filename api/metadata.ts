@@ -103,7 +103,7 @@ async function handleEbaySearch(req: any, res: any) {
     }).filter((item: any) => {
       if (!item.id || !item.url || item.price === null) return false;
       if (mode !== "used") return true;
-      return /used|pre[- ]?owned|open box/i.test(String(item.condition || ""));
+      return /used|pre[- ]?owned|open box|very good|good|acceptable/i.test(String(item.condition || ""));
     });
 
     // Browse API price sorting considers item price plus shipping. Sort the
