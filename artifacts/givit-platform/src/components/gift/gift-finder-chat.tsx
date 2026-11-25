@@ -229,12 +229,13 @@ type EbayUsedListing = {
   url: string;
 };
 
-function EbayUsedPriceLookup({ productName }: { productName: string }) {
+function EbayUsedPriceLookup({ productName, enabled }: { productName: string; enabled: boolean }) {
   const [listing, setListing] = useState<EbayUsedListing | null>(null);
   const [status, setStatus] = useState<"loading" | "found" | "empty" | "error">("loading");
 
   useEffect(() => {
     let cancelled = false;
+    if (!enabled) { setListing(null); setStatus("empty"); return () => { cancelled = true; }; }
     setStatus("loading");
     setListing(null);
     const params = new URLSearchParams({ action: "ebay_search", q: productName, mode: "used" });
@@ -260,10 +261,10 @@ function EbayUsedPriceLookup({ productName }: { productName: string }) {
   return (
     <div className="mt-3 rounded-xl border border-border/60 bg-muted/30 p-3">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Second-hand price check</span>
-        <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">eBay · Used</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Second-hand options</span>
+        <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">Lowest found</span>
       </div>
-      {status === "loading" ? (
+      {!enabled ? <p className="text-xs text-muted-foreground">Second-hand price checks are turned off.</p> : status === "loading" ? (
         <p className="text-xs text-muted-foreground">Checking used listings for this exact recommendation…</p>
       ) : status === "found" && listing ? (
         <div className="flex items-center gap-3">
@@ -281,13 +282,13 @@ function EbayUsedPriceLookup({ productName }: { productName: string }) {
       ) : status === "empty" ? (
         <p className="text-xs text-muted-foreground">No matching second-hand listing found right now. Try again later or view new options above.</p>
       ) : (
-        <p className="text-xs text-muted-foreground">Couldn't check eBay right now. The GIVIT recommendation is still available above.</p>
+        <p className="text-xs text-muted-foreground">Second-hand listings are temporarily unavailable. Your GIVIT recommendation is still available.</p>
       )}
     </div>
   );
 }
 
-function GiftCard({ result, index, onItemFeedback, lowest = false }: { result: GiftResult; index: number; onItemFeedback: (result: GiftResult, liked: boolean) => void; lowest?: boolean }) {
+function GiftCard({ result, index, onItemFeedback, lowest = false, secondHandEnabled = true }: { result: GiftResult; index: number; onItemFeedback: (result: GiftResult, liked: boolean) => void; lowest?: boolean }) {
   const [imageSrc, setImageSrc] = useState(result.image_url || productPhotoFallback(result.slug, result.category_slug));
   // Tapping Like/Not this used to give zero visual confirmation — the
   // buttons looked identical before and after a click, so users couldn't
@@ -347,7 +348,7 @@ function GiftCard({ result, index, onItemFeedback, lowest = false }: { result: G
             ))}
           </div>
         )}
-        <EbayUsedPriceLookup productName={result.name} />
+        <EbayUsedPriceLookup productName={result.name} enabled={secondHandEnabled} />
         <div className="mt-3 grid gap-2">
           {locked ? (
             <Link
@@ -412,6 +413,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
   // below); this only controls whether it's expanded on narrow screens,
   // where a permanent 300px column isn't viable next to the chat.
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+  const [secondHandEnabled, setSecondHandEnabled] = useState(true);
   // Saved AutoGift recipient profiles double as one-tap starting points here
   // — their interests/avoid-list/budget were already captured once, so
   // reusing them avoids making the shopper retype what GIVIT already knows.
@@ -577,7 +579,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 250));
-      const profile = await readLearningProfile();
+      const profile = await readLearningProfile().catch(() => ({ productWeights: {}, tagWeights: {} }));
       const gifterTraits = getCohort(authProfile?.gifting_cohort)?.traits ?? [];
       const recommendOptions = { priorContext: contextRef.current, excludeIds, catalog: catalogRef.current, gifterTraits };
       // If the message names someone already saved (typed "gift for Mom"
@@ -852,6 +854,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
 
       <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm">
         <div className="flex items-center justify-end px-3 py-2.5 sm:px-5 sm:py-3">
+          <div className="mr-auto flex items-center gap-2 rounded-full border border-border/60 px-3 py-1.5"><span className="text-xs font-medium">Second-hand price check</span><button type="button" role="switch" aria-label="Toggle second-hand price checks" aria-checked={secondHandEnabled} onClick={() => setSecondHandEnabled((v) => !v)} className={"relative h-5 w-9 rounded-full transition-colors " + (secondHandEnabled ? "bg-emerald-600" : "bg-muted-foreground/40")}><span className={"absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform " + (secondHandEnabled ? "translate-x-4" : "translate-x-0.5")} /></button></div>
           <div className="flex gap-1.5">
             {lastQuery && !loading && (
               <button type="button" onClick={regenerate} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition">
@@ -892,7 +895,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
                   )}
                   {msg.results && msg.results.length > 0 && (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {msg.results.map((result, idx) => <GiftCard key={result.id} result={result} index={idx} onItemFeedback={handleItemFeedback} lowest={lowestPriceId(msg.results!) === result.id} />)}
+                      {msg.results.map((result, idx) => <GiftCard key={result.id} result={result} index={idx} onItemFeedback={handleItemFeedback} lowest={lowestPriceId(msg.results!) === result.id} secondHandEnabled={secondHandEnabled} />)}
                       <div className="flex flex-wrap items-center gap-3 border-t border-border/30 pt-3 text-xs text-muted-foreground sm:col-span-2 xl:col-span-3">
                         <span className="font-semibold text-givit-ink">Did these feel right?</span>
                         <button type="button" onClick={() => handleFeedback(msg.results ?? [], true)} className="inline-flex items-center gap-1 rounded-full bg-success/10 px-3 py-1 font-semibold text-success transition hover:bg-success/20"><ThumbsUp className="h-3.5 w-3.5" /> Satisfied</button>
@@ -914,7 +917,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
                             </div>
                             {entry.results.length > 0 ? (
                               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                {entry.results.map((result, idx) => <GiftCard key={result.id} result={result} index={idx} onItemFeedback={handleItemFeedback} lowest={lowestPriceId(entry.results) === result.id} />)}
+                                {entry.results.map((result, idx) => <GiftCard key={result.id} result={result} index={idx} onItemFeedback={handleItemFeedback} lowest={lowestPriceId(entry.results) === result.id} secondHandEnabled={secondHandEnabled} />)}
                               </div>
                             ) : (
                               <p className="text-xs text-muted-foreground">No strong match in that budget yet — try raising it a bit.</p>
