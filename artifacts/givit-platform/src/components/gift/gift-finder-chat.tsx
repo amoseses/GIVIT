@@ -288,7 +288,7 @@ function EbayUsedPriceLookup({ productName, enabled }: { productName: string; en
   );
 }
 
-function GiftCard({ result, index, onItemFeedback, lowest = false, secondHandEnabled = true }: { result: GiftResult; index: number; onItemFeedback: (result: GiftResult, liked: boolean) => void; lowest?: boolean }) {
+function GiftCard({ result, index, onItemFeedback, lowest = false, secondHandEnabled = true }: { result: GiftResult; index: number; onItemFeedback: (result: GiftResult, liked: boolean) => void; lowest?: boolean; secondHandEnabled?: boolean }) {
   const [imageSrc, setImageSrc] = useState(result.image_url || productPhotoFallback(result.slug, result.category_slug));
   // Tapping Like/Not this used to give zero visual confirmation — the
   // buttons looked identical before and after a click, so users couldn't
@@ -665,7 +665,7 @@ export function GiftFinderChat({ initialQuery }: { initialQuery?: string } = {})
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 200));
-      const profile = await readLearningProfile();
+      const profile = await readLearningProfile().catch(() => ({ productWeights: {}, tagWeights: {} }));
       const plan = runBatchGiftSearch(parsed, savedRecipients, profile, catalogRef.current);
       plan.entries.forEach((entry) => entry.results.forEach((r) => shownIdsRef.current.add(r.id)));
       trackUserEvent("ai_batch_split_generated", { people: plan.entries.length, totalBudgetCents: plan.totalBudgetCents, mode: plan.mode });
