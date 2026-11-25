@@ -26,7 +26,7 @@ export default function GiftFinderPage() {
             Your <span className="givit-gradient-text font-semibold">Gift AI</span>
           </h1>
           <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-white/60">
-            Tell GIVIT who you're shopping for and your budget. It finds tailored gift ideas, then checks eBay for the lowest matching second-hand price.
+            Tell GIVIT who you're shopping for and your budget. It finds tailored gift ideas and can compare second-hand options to help you find a lower price.
           </p>
           <div className="mx-auto mt-5 max-w-xl rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-left sm:px-5">
             <p className="text-sm font-semibold text-white">Free while we're testing</p>
