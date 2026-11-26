@@ -84,39 +84,71 @@ async function searchEbayUsed(query: string) {
     && /used|pre[- ]?owned|open box|very good|good|acceptable/i.test(String(item.condition || "")));
 }
 
-async function searchGoogleShoppingUsed(query: string) {
-  const apiKey = process.env.SERPAPI_KEY?.trim();
-  if (!apiKey) throw new Error("Google Shopping provider is not configured");
-  const params = new URLSearchParams({
-    engine: "google_shopping",
-    q: `used second hand pre-owned ${query}`,
-    api_key: apiKey,
-    gl: "us",
-    hl: "en",
+async function searchDataForSeoUsed(query: string) {
+  const login = process.env.DATAFORSEO_LOGIN?.trim();
+  const password = process.env.DATAFORSEO_PASSWORD?.trim();
+  if (!login || !password) throw new Error("DataForSEO credentials are not configured");
+  const authorization = `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`;
+  const headers = { Authorization: authorization, "Content-Type": "application/json" };
+
+  const postResponse = await fetch("https://api.dataforseo.com/v3/merchant/google/products/task_post", {
+    method: "POST",
+    headers,
+    body: JSON.stringify([{
+      location_name: "United States",
+      language_name: "English",
+      keyword: `used refurbished renewed pre-owned ${query}`,
+      depth: 40,
+      priority: 2,
+      sort_by: "price_low_to_high",
+    }]),
   });
-  const response = await fetch(`https://serpapi.com/search.json?${params.toString()}`);
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || payload.error) throw new Error("Google Shopping search failed");
-  return (Array.isArray(payload.shopping_results) ? payload.shopping_results : []).map((item: any, index: number) => {
-    const price = Number(item.extracted_price);
-    const title = String(item.title || "Shopping listing");
-    const condition = /used|pre[- ]?owned|refurbished|renewed|open box/i.test(title) ? "Used / pre-owned (verify listing)" : "Condition not confirmed";
-    return {
-      id: `google-shopping:${String(item.product_id || item.position || index)}`,
-      title,
-      imageUrl: item.thumbnail || null,
-      price: Number.isFinite(price) ? price : null,
-      currency: "USD",
-      shipping: null,
-      total: null,
-      condition,
-      seller: item.source || null,
-      sellerFeedback: null,
-      url: item.product_link || item.link || null,
-      source: "Google Shopping",
-    };
-  }).filter((item: any) => item.url && item.price !== null
-    && /used|pre[- ]?owned|refurbished|renewed|open box/i.test(item.title));
+  const posted = await postResponse.json().catch(() => ({}));
+  const task = Array.isArray(posted.tasks) ? posted.tasks[0] : null;
+  if (!postResponse.ok || posted.status_code !== 20000 || !task?.id || task.status_code >= 40000) {
+    throw new Error(`DataForSEO task submission failed (${postResponse.status || posted.status_code || "unknown"})`);
+  }
+
+  // Merchant API uses an asynchronous task flow. Check once immediately;
+  // if it is not ready, let eBay results through instead of holding the UI.
+  const resultResponse = await fetch(
+    `https://api.dataforseo.com/v3/merchant/google/products/task_get/advanced/${encodeURIComponent(task.id)}`,
+    { headers: { Authorization: authorization } },
+  );
+  const resultPayload = await resultResponse.json().catch(() => ({}));
+  if (!resultResponse.ok || resultPayload.status_code !== 20000) {
+    throw new Error("DataForSEO results request failed");
+  }
+  const completedTask = Array.isArray(resultPayload.tasks) ? resultPayload.tasks[0] : null;
+  if (!completedTask || completedTask.status_code !== 20000) return [];
+
+  const result = Array.isArray(completedTask.result) ? completedTask.result[0] : null;
+  const rows = Array.isArray(result?.items) ? result.items : [];
+  return rows.filter((item: any) => item.type === "google_shopping_serp")
+    .map((item: any, index: number) => {
+      const title = String(item.title || "Shopping listing");
+      const description = String(item.description || "");
+      const tags = Array.isArray(item.tags) ? item.tags.join(" ") : "";
+      const conditionText = `${title} ${description} ${tags}`;
+      const usedMatch = conditionText.match(/used|pre[- ]?owned|refurbished|renewed|open[- ]?box|reconditioned/i);
+      const price = Number(item.price);
+      const delivery = Number(item.delivery_info?.delivery_price?.current);
+      return {
+        id: `dataforseo:${String(item.product_id || item.data_docid || index)}`,
+        title,
+        imageUrl: Array.isArray(item.product_images) ? item.product_images[0] || null : null,
+        price: Number.isFinite(price) ? price : null,
+        currency: item.currency || "USD",
+        shipping: Number.isFinite(delivery) ? delivery : null,
+        total: Number.isFinite(price) && Number.isFinite(delivery) ? Math.round((price + delivery) * 100) / 100 : null,
+        condition: usedMatch?.[0] || "Used condition not confirmed",
+        seller: item.seller || item.domain || null,
+        sellerFeedback: null,
+        url: item.url || item.shopping_url || result.check_url || null,
+        source: "Google Shopping",
+      };
+    })
+    .filter((item: any) => item.url && item.price !== null && /used|pre[- ]?owned|refurbished|renewed|open[- ]?box|reconditioned/i.test(item.condition));
 }
 
 async function handleEbaySearch(req: any, res: any) {
@@ -132,12 +164,12 @@ async function handleEbaySearch(req: any, res: any) {
   // not suppress listings returned by another source.
   const providers = await Promise.allSettled([
     searchEbayUsed(query),
-    searchGoogleShoppingUsed(query),
+    searchDataForSeoUsed(query),
   ]);
   const items = providers.flatMap((result) => result.status === "fulfilled" ? result.value : []);
   const providerStatus = {
     ebay: providers[0].status === "fulfilled" ? "ok" : "unavailable",
-    googleShopping: providers[1].status === "fulfilled" ? "ok" : "unavailable",
+    dataForSeo: providers[1].status === "fulfilled" ? "ok" : "unavailable",
   };
   if (providers.some((result) => result.status === "rejected")) {
     console.warn("Second-hand search provider status:", providerStatus);
