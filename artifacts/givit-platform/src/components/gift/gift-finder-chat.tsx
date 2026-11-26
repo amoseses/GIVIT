@@ -227,6 +227,7 @@ type EbayUsedListing = {
   seller: string | null;
   sellerFeedback: string | null;
   url: string;
+  source?: string;
 };
 
 function EbayUsedPriceLookup({ productName, enabled }: { productName: string; enabled: boolean }) {
@@ -256,7 +257,7 @@ function EbayUsedPriceLookup({ productName, enabled }: { productName: string; en
       })
       .catch(() => { if (!cancelled) setStatus("error"); });
     return () => { cancelled = true; };
-  }, [productName]);
+  }, [productName, enabled]);
 
   return (
     <div className="mt-3 rounded-xl border border-border/60 bg-muted/30 p-3">
@@ -275,14 +276,14 @@ function EbayUsedPriceLookup({ productName, enabled }: { productName: string; en
               {new Intl.NumberFormat("en-US", { style: "currency", currency: listing.currency || "USD" }).format(Number(listing.total ?? listing.price))}
               <span className="ml-1 text-[10px] font-normal text-muted-foreground">{listing.shipping == null ? " · shipping not included" : " · incl. listed shipping"}</span>
             </p>
-            <p className="text-[10px] text-muted-foreground">{listing.condition || "Used"}{listing.seller ? ` · Seller: ${listing.seller}` : ""}</p>
+            <p className="text-[10px] text-muted-foreground">{listing.condition || "Used"}{listing.source ? ` · ${listing.source}` : ""}{listing.seller ? ` · Seller: ${listing.seller}` : ""}</p>
           </div>
           <a href={listing.url} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-full bg-emerald-600 px-3 py-2 text-[11px] font-semibold text-white hover:bg-emerald-700">View deal</a>
         </div>
       ) : status === "empty" ? (
         <p className="text-xs text-muted-foreground">No matching second-hand listing found right now. Try again later or view new options above.</p>
       ) : (
-        <p className="text-xs text-muted-foreground">Second-hand listings are temporarily unavailable. Your GIVIT recommendation is still available.</p>
+        <p className="text-xs text-muted-foreground">Second-hand search is temporarily unavailable. This is not a sign-in issue—GIVIT recommendations work without an account. Please try again later.</p>
       )}
     </div>
   );
