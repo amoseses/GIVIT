@@ -42,6 +42,83 @@ async function getEbayAccessToken() {
   return ebayAccessToken;
 }
 
+async function searchEbayUsed(query: string) {
+  const token = await getEbayAccessToken();
+  const params = new URLSearchParams({
+    q: query,
+    limit: "50",
+    sort: "price",
+    filter: "buyingOptions:{FIXED_PRICE},deliveryCountry:US,conditionIds:{3000|4000|5000|6000}",
+  });
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+    "X-EBAY-C-ENDUSERCTX": "contextualLocation=country%3DUS",
+  };
+  if (process.env.EBAY_CAMPAIGN_ID?.trim()) {
+    headers["X-EBAY-C-ENDUSERCTX"] += `,affiliateCampaignId=${encodeURIComponent(process.env.EBAY_CAMPAIGN_ID.trim())}`;
+  }
+  const response = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params.toString()}`, { headers });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(`eBay Browse API returned ${response.status}`);
+  return (Array.isArray(payload.itemSummaries) ? payload.itemSummaries : []).map((item: any) => {
+    const price = Number(item.price?.value);
+    const shipping = Array.isArray(item.shippingOptions)
+      ? Number(item.shippingOptions.find((option: any) => option.shippingCost?.value != null)?.shippingCost?.value)
+      : NaN;
+    return {
+      id: `ebay:${String(item.itemId || "")}`,
+      title: String(item.title || "eBay listing"),
+      imageUrl: item.image?.imageUrl || item.thumbnailImages?.[0]?.imageUrl || null,
+      price: Number.isFinite(price) ? price : null,
+      currency: item.price?.currency || "USD",
+      shipping: Number.isFinite(shipping) ? shipping : null,
+      total: Number.isFinite(price) && Number.isFinite(shipping) ? Math.round((price + shipping) * 100) / 100 : null,
+      condition: item.condition || "Used",
+      seller: item.seller?.username || null,
+      sellerFeedback: item.seller?.feedbackPercentage || null,
+      url: item.itemAffiliateWebUrl || item.itemWebUrl || null,
+      source: "eBay",
+    };
+  }).filter((item: any) => item.id !== "ebay:" && item.url && item.price !== null
+    && /used|pre[- ]?owned|open box|very good|good|acceptable/i.test(String(item.condition || "")));
+}
+
+async function searchGoogleShoppingUsed(query: string) {
+  const apiKey = process.env.SERPAPI_KEY?.trim();
+  if (!apiKey) throw new Error("Google Shopping provider is not configured");
+  const params = new URLSearchParams({
+    engine: "google_shopping",
+    q: `used second hand pre-owned ${query}`,
+    api_key: apiKey,
+    gl: "us",
+    hl: "en",
+  });
+  const response = await fetch(`https://serpapi.com/search.json?${params.toString()}`);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.error) throw new Error("Google Shopping search failed");
+  return (Array.isArray(payload.shopping_results) ? payload.shopping_results : []).map((item: any, index: number) => {
+    const price = Number(item.extracted_price);
+    const title = String(item.title || "Shopping listing");
+    const condition = /used|pre[- ]?owned|refurbished|renewed|open box/i.test(title) ? "Used / pre-owned (verify listing)" : "Condition not confirmed";
+    return {
+      id: `google-shopping:${String(item.product_id || item.position || index)}`,
+      title,
+      imageUrl: item.thumbnail || null,
+      price: Number.isFinite(price) ? price : null,
+      currency: "USD",
+      shipping: null,
+      total: null,
+      condition,
+      seller: item.source || null,
+      sellerFeedback: null,
+      url: item.product_link || item.link || null,
+      source: "Google Shopping",
+    };
+  }).filter((item: any) => item.url && item.price !== null
+    && /used|pre[- ]?owned|refurbished|renewed|open box/i.test(item.title));
+}
+
 async function handleEbaySearch(req: any, res: any) {
   const rawQuery = req.query?.q;
   const query = typeof rawQuery === "string" ? rawQuery.trim().slice(0, 100) : "";
@@ -49,72 +126,34 @@ async function handleEbaySearch(req: any, res: any) {
     res.status(400).json({ error: "Enter at least two characters to search." });
     return;
   }
-  if (!process.env.EBAY_CLIENT_ID || !process.env.EBAY_CLIENT_SECRET) {
-    res.setHeader("Cache-Control", "no-store");
-    res.status(503).json({ error: "eBay search is being configured. Please check back soon.", items: [] });
+
+  // This endpoint is intentionally public: anonymous Gift AI visitors can
+  // use it. Provider failures are isolated so one unavailable source does
+  // not suppress listings returned by another source.
+  const providers = await Promise.allSettled([
+    searchEbayUsed(query),
+    searchGoogleShoppingUsed(query),
+  ]);
+  const items = providers.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  const providerStatus = {
+    ebay: providers[0].status === "fulfilled" ? "ok" : "unavailable",
+    googleShopping: providers[1].status === "fulfilled" ? "ok" : "unavailable",
+  };
+  if (providers.some((result) => result.status === "rejected")) {
+    console.warn("Second-hand search provider status:", providerStatus);
+  }
+  items.sort((left: any, right: any) => (left.total ?? left.price) - (right.total ?? right.price));
+  res.setHeader("Cache-Control", items.length ? "public, s-maxage=180, stale-while-revalidate=600" : "no-store");
+  if (!items.length) {
+    res.status(503).json({
+      error: "No second-hand search providers are currently returning results.",
+      reason: "provider_unavailable",
+      providerStatus,
+      items: [],
+    });
     return;
   }
-
-  try {
-    const token = await getEbayAccessToken();
-    const mode = typeof req.query?.mode === "string" ? req.query.mode : "all";
-    const params = new URLSearchParams({
-      q: query,
-      limit: mode === "used" ? "50" : "24",
-      sort: "price",
-      filter: mode === "used"
-        ? "buyingOptions:{FIXED_PRICE},deliveryCountry:US,conditionIds:{3000|4000|5000|6000}"
-        : "buyingOptions:{FIXED_PRICE},deliveryCountry:US",
-    });
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
-      "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
-      "X-EBAY-C-ENDUSERCTX": "contextualLocation=country%3DUS",
-    };
-    if (process.env.EBAY_CAMPAIGN_ID?.trim()) {
-      headers["X-EBAY-C-ENDUSERCTX"] += `,affiliateCampaignId=${encodeURIComponent(process.env.EBAY_CAMPAIGN_ID.trim())}`;
-    }
-    const response = await fetch(`https://api.ebay.com/buy/browse/v1/item_summary/search?${params.toString()}`, { headers });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      console.error("eBay Browse API error:", response.status, payload?.errors?.[0]?.message || "request failed");
-      res.status(response.status === 429 ? 503 : 502).json({ error: "eBay search is temporarily unavailable.", items: [] });
-      return;
-    }
-
-    const items = (Array.isArray(payload.itemSummaries) ? payload.itemSummaries : []).map((item: any) => {
-      const price = Number(item.price?.value);
-      const shipping = Array.isArray(item.shippingOptions)
-        ? Number(item.shippingOptions.find((option: any) => option.shippingCost?.value != null)?.shippingCost?.value)
-        : NaN;
-      return {
-        id: String(item.itemId || ""),
-        title: String(item.title || "eBay listing"),
-        imageUrl: item.image?.imageUrl || item.thumbnailImages?.[0]?.imageUrl || null,
-        price: Number.isFinite(price) ? price : null,
-        currency: item.price?.currency || "USD",
-        shipping: Number.isFinite(shipping) ? shipping : null,
-        total: Number.isFinite(price) && Number.isFinite(shipping) ? Math.round((price + shipping) * 100) / 100 : null,
-        condition: item.condition || null,
-        seller: item.seller?.username || null,
-        sellerFeedback: item.seller?.feedbackPercentage || null,
-        url: item.itemAffiliateWebUrl || item.itemWebUrl || null,
-      };
-    }).filter((item: any) => {
-      if (!item.id || !item.url || item.price === null) return false;
-      if (mode !== "used") return true;
-      return /used|pre[- ]?owned|open box|very good|good|acceptable/i.test(String(item.condition || ""));
-    });
-
-    // Browse API price sorting considers item price plus shipping. Sort the
-    // normalized listings again so the cheapest delivered option is first.
-    items.sort((left: any, right: any) => (left.total ?? left.price) - (right.total ?? right.price));
-    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=900");
-    res.status(200).json({ source: "ebay", query, mode, items });
-  } catch (error: any) {
-    console.error("eBay search failed:", error?.message || error);
-    res.status(502).json({ error: "eBay search is temporarily unavailable.", items: [] });
-  }
+  res.status(200).json({ query, mode: "used", providerStatus, items });
 }
 
 const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
