@@ -109,19 +109,27 @@ async function searchDataForSeoUsed(query: string) {
     throw new Error(`DataForSEO task submission failed (${postResponse.status || posted.status_code || "unknown"})`);
   }
 
-  // Merchant API uses an asynchronous task flow. Check once immediately;
-  // if it is not ready, let eBay results through instead of holding the UI.
-  const resultResponse = await fetch(
-    `https://api.dataforseo.com/v3/merchant/google/products/task_get/advanced/${encodeURIComponent(task.id)}`,
-    { headers: { Authorization: authorization } },
-  );
-  const resultPayload = await resultResponse.json().catch(() => ({}));
-  if (!resultResponse.ok || resultPayload.status_code !== 20000) {
-    throw new Error("DataForSEO results request failed");
+  // Merchant API tasks are asynchronous (priority 2 is typically under
+  // one minute). Poll briefly so fast tasks can join this response; if the
+  // task is still processing, return eBay results without blocking the gift flow.
+  let completedTask: any = null;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 900));
+    const resultResponse = await fetch(
+      `https://api.dataforseo.com/v3/merchant/google/products/task_get/advanced/${encodeURIComponent(task.id)}`,
+      { headers: { Authorization: authorization } },
+    );
+    const resultPayload = await resultResponse.json().catch(() => ({}));
+    if (!resultResponse.ok || resultPayload.status_code !== 20000) {
+      if (attempt === 5) throw new Error("DataForSEO results request failed");
+      continue;
+    }
+    completedTask = Array.isArray(resultPayload.tasks) ? resultPayload.tasks[0] : null;
+    if (completedTask?.status_code === 20000) break;
+    if (completedTask?.status_code >= 40000) throw new Error("DataForSEO task failed");
+    completedTask = null;
   }
-  const completedTask = Array.isArray(resultPayload.tasks) ? resultPayload.tasks[0] : null;
-  if (!completedTask || completedTask.status_code !== 20000) return [];
-
+  if (!completedTask) throw new Error("DataForSEO task is still processing");
   const result = Array.isArray(completedTask.result) ? completedTask.result[0] : null;
   const rows = Array.isArray(result?.items) ? result.items : [];
   return rows.filter((item: any) => item.type === "google_shopping_serp")
